@@ -1,1 +1,26 @@
-{}
+{
+  "Header": {
+    "nav": {
+      "perfumes": "Perfumes",
+      "bodyMist": "Body Mist",
+      "homeFragrance": "Home Fragrance",
+      "collections": "Collections",
+      "about": "About",
+      "contact": "Contact"
+    },
+    "quote": "Quote",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "Footer": {
+    "blurb": "Masmoum Fragrances is a wholesale fragrance manufacturer supplying perfumes, body mist, hair mist, deodorant, roll-on, and home fragrance products to retailers and distributors.",
+    "shopHeading": "Shop",
+    "supportHeading": "Support",
+    "contactHeading": "Contact Us",
+    "contactCountry": "United Arab Emirates",
+    "contactEmailLabel": "Email",
+    "contactPhoneLabel": "Phone / WhatsApp",
+    "requestQuote": "Request a Quote",
+    "copyright": "© {year} Masmoum Fragrances. All rights reserved."
+  }
+}

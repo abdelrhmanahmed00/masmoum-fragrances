@@ -1,1 +1,26 @@
-{}
+{
+  "Header": {
+    "nav": {
+      "perfumes": "العطور",
+      "bodyMist": "بادي ميست",
+      "homeFragrance": "معطر المنزل",
+      "collections": "التشكيلات",
+      "about": "من نحن",
+      "contact": "تواصل معنا"
+    },
+    "quote": "عرض السعر",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة"
+  },
+  "Footer": {
+    "blurb": "مسموم للعطور شركة تصنيع عطور بالجملة، توفر العطور وبادي ميست وهير ميست ومزيل التعرق ورول أون ومعطرات المنزل لتجار التجزئة والموزعين.",
+    "shopHeading": "المتجر",
+    "supportHeading": "الدعم",
+    "contactHeading": "تواصل معنا",
+    "contactCountry": "الإمارات العربية المتحدة",
+    "contactEmailLabel": "البريد الإلكتروني",
+    "contactPhoneLabel": "الهاتف / واتساب",
+    "requestQuote": "اطلب عرض سعر",
+    "copyright": "© {year} مسموم للعطور. جميع الحقوق محفوظة."
+  }
+}
