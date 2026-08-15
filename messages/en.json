@@ -19,7 +19,8 @@
     "contactHeading": "Contact Us",
     "contactCountry": "United Arab Emirates",
     "contactEmailLabel": "Email",
-    "contactPhoneLabel": "Phone / WhatsApp",
+    "contactPhoneLabel": "Phone",
+    "contactWhatsappLabel": "WhatsApp",
     "requestQuote": "Request a Quote",
     "copyright": "© {year} Masmoum Fragrances. All rights reserved."
   }

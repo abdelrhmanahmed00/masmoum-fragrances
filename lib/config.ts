@@ -45,6 +45,10 @@ export const REVALIDATE_SECONDS = {
   category: 3600, // 1 hour
   /** Homepage / marketing content — featured items, banners, etc. */
   marketing: 1800, // 30 minutes
+  /** site_settings (contact info, etc.) — rendered on every page via the
+   *  Footer, but changes only when an admin edits it, so a long window is
+   *  fine and keeps the read count low across the whole site. */
+  siteSettings: 3600, // 1 hour
 } as const;
 
 export const siteConfig = {

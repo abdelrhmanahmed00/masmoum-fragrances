@@ -27,3 +27,38 @@ export function createServiceRoleClient() {
     },
   });
 }
+
+/**
+ * Public, anon-privileged server-side client for Server Components / RSC
+ * data loaders reading public content (catalog, site settings). Unlike
+ * createServiceRoleClient above, this does NOT bypass RLS — reads are still
+ * governed by each table's SELECT policy, so it's the right client for any
+ * server-side fetch of data that's also safe to read with the anon key.
+ *
+ * Requests are wired into Next.js's fetch cache via `next.revalidate`, per
+ * the ISR caching plan in lib/config.ts (REVALIDATE_SECONDS) — repeated
+ * requests within that window are served from cache instead of hitting
+ * Supabase again. Pass the relevant REVALIDATE_SECONDS value explicitly at
+ * the call site rather than relying on a hidden default.
+ */
+export function createPublicClient(revalidateSeconds: number) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      "Missing Supabase public environment variables: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, { ...init, next: { revalidate: revalidateSeconds } }),
+    },
+  });
+}

@@ -1,5 +1,7 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { createPublicClient } from "@/lib/supabase/server";
+import { REVALIDATE_SECONDS } from "@/lib/config";
 
 const BRAND_NAME = "MASMOUM FRAGRANCES";
 
@@ -18,18 +20,61 @@ const SUPPORT_LINKS = [
   { key: "contact", href: "/contact" },
 ] as const;
 
-// Placeholder contact details — swap for the real business email/phone
-// once the client provides them. Country is a reasonable regional
-// assumption (Gulf B2B wholesale, matching the reference market) but
-// unconfirmed; flagged here and in the Prompt 5 report.
-const CONTACT_EMAIL = "info@masmoumfragrances.com";
-const CONTACT_PHONE = "+971 50 000 0000"; // placeholder — not a real number
-const CONTACT_PHONE_HREF = "+971500000000";
+const CONTACT_SETTING_KEYS = [
+  "contact_email",
+  "contact_phone",
+  "contact_whatsapp",
+] as const;
+
+type SettingKey = (typeof CONTACT_SETTING_KEYS)[number];
+type SettingsRow = { key: string; value_en: string | null; value_ar: string | null };
+
+/** Treats null/empty/whitespace-only as "not set" so a stray "" saved from
+ *  the future dashboard can't render as an awkward empty line either. */
+function normalize(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/** Prefers the current locale's value, falling back to the other locale's
+ *  value if only one has been entered so far (rather than hiding a line
+ *  that does have real content, just not yet translated). */
+function pickLocalizedSetting(
+  rows: SettingsRow[],
+  key: SettingKey,
+  locale: string
+): string | null {
+  const row = rows.find((r) => r.key === key);
+  if (!row) return null;
+  const primary = locale === "ar" ? row.value_ar : row.value_en;
+  const fallback = locale === "ar" ? row.value_en : row.value_ar;
+  return normalize(primary) ?? normalize(fallback);
+}
+
+async function getContactSettings(locale: string) {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.siteSettings);
+  const { data, error } = await supabase
+    .from("site_settings")
+    .select("key, value_en, value_ar")
+    .in("key", CONTACT_SETTING_KEYS);
+
+  // Graceful degradation: a fetch error just means no contact rows render
+  // (same visual outcome as unset values), never a broken page.
+  const rows: SettingsRow[] = error || !data ? [] : data;
+
+  return {
+    email: pickLocalizedSetting(rows, "contact_email", locale),
+    phone: pickLocalizedSetting(rows, "contact_phone", locale),
+    whatsapp: pickLocalizedSetting(rows, "contact_whatsapp", locale),
+  };
+}
 
 export default async function Footer() {
+  const locale = await getLocale();
   const t = await getTranslations("Footer");
   const nav = await getTranslations("Header.nav");
   const year = new Date().getFullYear();
+  const { email, phone, whatsapp } = await getContactSettings(locale);
 
   return (
     <footer className="border-t border-brand-border bg-brand-white">
@@ -89,31 +134,50 @@ export default async function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Contact — email/phone/whatsapp are dashboard-editable
+              (site_settings table); each line only renders once a real
+              value has been entered. */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-brand-black">
               {t("contactHeading")}
             </h3>
             <div className="space-y-2 text-sm text-brand-gray">
               <p>{t("contactCountry")}</p>
-              <p>
-                {t("contactEmailLabel")}:{" "}
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  className="transition-colors hover:text-brand-black"
-                >
-                  {CONTACT_EMAIL}
-                </a>
-              </p>
-              <p>
-                {t("contactPhoneLabel")}:{" "}
-                <a
-                  href={`tel:${CONTACT_PHONE_HREF}`}
-                  className="transition-colors hover:text-brand-black"
-                >
-                  {CONTACT_PHONE}
-                </a>
-              </p>
+              {email ? (
+                <p>
+                  {t("contactEmailLabel")}:{" "}
+                  <a
+                    href={`mailto:${email}`}
+                    className="transition-colors hover:text-brand-black"
+                  >
+                    {email}
+                  </a>
+                </p>
+              ) : null}
+              {phone ? (
+                <p>
+                  {t("contactPhoneLabel")}:{" "}
+                  <a
+                    href={`tel:${phone}`}
+                    className="transition-colors hover:text-brand-black"
+                  >
+                    {phone}
+                  </a>
+                </p>
+              ) : null}
+              {whatsapp ? (
+                <p>
+                  {t("contactWhatsappLabel")}:{" "}
+                  <a
+                    href={`https://wa.me/${whatsapp.replace(/[^\d]/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="transition-colors hover:text-brand-black"
+                  >
+                    {whatsapp}
+                  </a>
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

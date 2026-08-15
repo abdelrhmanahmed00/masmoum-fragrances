@@ -19,7 +19,8 @@
     "contactHeading": "تواصل معنا",
     "contactCountry": "الإمارات العربية المتحدة",
     "contactEmailLabel": "البريد الإلكتروني",
-    "contactPhoneLabel": "الهاتف / واتساب",
+    "contactPhoneLabel": "الهاتف",
+    "contactWhatsappLabel": "واتساب",
     "requestQuote": "اطلب عرض سعر",
     "copyright": "© {year} مسموم للعطور. جميع الحقوق محفوظة."
   }
