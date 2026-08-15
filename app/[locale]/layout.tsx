@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Jost, Tajawal } from "next/font/google";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -7,14 +7,26 @@ import { routing } from "@/i18n/routing";
 import { siteConfig } from "@/lib/config";
 import "../globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Reference site (shop-gulforchid.com) uses "Jost" for both headings and
+// body copy (weights 400/500/600, confirmed via its @font-face rules).
+// Jost is Latin-only, so Arabic pages use Tajawal — a geometric Arabic
+// sans-serif chosen to pair with Jost's look (this pairing is a necessary
+// addition, not something extracted from the reference, which doesn't
+// visibly serve distinct Arabic typography). Both bind to the SAME
+// `--font-body` CSS variable so only one is ever loaded per request — see
+// the `activeFont` selection below and `--font-sans` in globals.css.
+const jost = Jost({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const tajawal = Tajawal({
+  variable: "--font-body",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export function generateStaticParams() {
@@ -45,12 +57,13 @@ export default async function LocaleLayout({
 
   const messages = await getMessages();
   const direction = locale === "ar" ? "rtl" : "ltr";
+  const activeFont = locale === "ar" ? tajawal : jost;
 
   return (
     <html
       lang={locale}
       dir={direction}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${activeFont.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
