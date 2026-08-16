@@ -5,13 +5,13 @@ import { REVALIDATE_SECONDS } from "@/lib/config";
 
 const BRAND_NAME = "MASMOUM FRAGRANCES";
 
-// Same static shell nav as Header.tsx, split by intent rather than
-// repeating every link — matches the reference site's "Shop" / "Support"
-// footer column split.
+// Same static shell nav as Header.tsx (kept in sync with its hrefs — see
+// its comment), split by intent rather than repeating every link —
+// matches the reference site's "Shop" / "Support" footer column split.
 const SHOP_LINKS = [
-  { key: "perfumes", href: "/perfumes" },
-  { key: "bodyMist", href: "/body-mist" },
-  { key: "homeFragrance", href: "/home-fragrance" },
+  { key: "perfumes", href: "/categories/perfumes" },
+  { key: "bodyMist", href: "/categories/body-mist" },
+  { key: "homeFragrance", href: "/categories/home-fragrance" },
   { key: "collections", href: "/collections" },
 ] as const;
 

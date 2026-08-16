@@ -13,12 +13,15 @@ const BRAND_NAME = "MASMOUM FRAGRANCES";
 // header structure (logo left / nav center / action pill right, mirrored
 // automatically in RTL by flexbox + logical properties — see Footer.tsx
 // for the equivalent link set). Intentionally NOT dashboard-editable: this
-// is site navigation, not product/category data — real category slugs
-// will replace these hrefs once category pages exist.
+// is site navigation, not product/category data. The first three hrefs
+// point at /categories/{slug} using the real seeded category slugs
+// (perfumes, body-mist, home-fragrance — confirmed against Prompt 2's
+// migration); /collections, /about, /contact remain forward-looking
+// placeholders (no index/about/contact page exists yet).
 const NAV_ITEMS = [
-  { key: "perfumes", href: "/perfumes" },
-  { key: "bodyMist", href: "/body-mist" },
-  { key: "homeFragrance", href: "/home-fragrance" },
+  { key: "perfumes", href: "/categories/perfumes" },
+  { key: "bodyMist", href: "/categories/body-mist" },
+  { key: "homeFragrance", href: "/categories/home-fragrance" },
   { key: "collections", href: "/collections" },
   { key: "about", href: "/about" },
   { key: "contact", href: "/contact" },

@@ -32,8 +32,18 @@
     "heading": "منتجاتنا",
     "allTab": "الكل",
     "emptyState": "الكتالوج قريبًا — تابعونا.",
+    "noFilterResults": "لا توجد منتجات مطابقة لهذه الفلاتر حاليًا.",
     "seeMore": "عرض المزيد",
-    "addToQuote": "أضف إلى عرض السعر"
+    "addToQuote": "أضف إلى عرض السعر",
+    "genderLabel": "الجنس",
+    "allGenders": "الكل",
+    "gender": {
+      "men": "رجالي",
+      "women": "نسائي",
+      "unisex": "للجنسين"
+    },
+    "collectionLabel": "التشكيلة",
+    "allCollections": "الكل"
   },
   "Videos": {
     "heading": "شاهدها عن قرب",

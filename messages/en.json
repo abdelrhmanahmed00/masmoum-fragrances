@@ -32,8 +32,18 @@
     "heading": "Our Products",
     "allTab": "All",
     "emptyState": "Catalog coming soon — check back shortly.",
+    "noFilterResults": "No products match these filters yet.",
     "seeMore": "See more",
-    "addToQuote": "Add to Quote"
+    "addToQuote": "Add to Quote",
+    "genderLabel": "Gender",
+    "allGenders": "All",
+    "gender": {
+      "men": "Men",
+      "women": "Women",
+      "unisex": "Unisex"
+    },
+    "collectionLabel": "Collection",
+    "allCollections": "All"
   },
   "Videos": {
     "heading": "See It In Action",
