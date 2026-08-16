@@ -24,6 +24,17 @@ export type QuoteLineItem = {
   sizeLabel: string | null;
   productNameEn: string;
   productNameAr: string;
+  /** Added in Prompt 19 for the Quote Summary page's category subtitle
+   *  (PRODUCT column: image + name + category). Both `lib/catalog.ts`'s
+   *  card and detail queries already fetch `categoryName: {en, ar} | null`
+   *  for on-page display -- this just threads the same data one level
+   *  further, through AddToQuoteButton, into the snapshot. Nullable
+   *  because a product can in principle have no category; also absent
+   *  (not just null -- the key won't exist at all) on any line item added
+   *  before this prompt shipped, since old localStorage snapshots predate
+   *  this field -- UI code must treat a missing key the same as null. */
+  categoryNameEn: string | null;
+  categoryNameAr: string | null;
   imageUrl: string | null;
   quantity: number;
 };

@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useQuote } from "./QuoteProvider";
+import QuoteQuantityStepper from "./QuoteQuantityStepper";
+import QuoteRemoveButton from "./QuoteRemoveButton";
 
 // Interaction pattern reused from Header.tsx's mobile nav (Prompt 5) —
 // confirmed there against the reference site's own off-canvas drawer:
@@ -26,15 +28,8 @@ import { useQuote } from "./QuoteProvider";
 export default function QuoteSidebar() {
   const locale = useLocale();
   const t = useTranslations("Quote");
-  const {
-    items,
-    updateQuantity,
-    removeItem,
-    totalItems,
-    totalQuantity,
-    isSidebarOpen,
-    closeSidebar,
-  } = useQuote();
+  const { items, totalItems, totalQuantity, isSidebarOpen, closeSidebar } =
+    useQuote();
 
   return (
     <div
@@ -149,26 +144,7 @@ export default function QuoteSidebar() {
                         >
                           {name}
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id)}
-                          aria-label={t("remove")}
-                          className="shrink-0 text-brand-gray transition-colors hover:text-brand-black"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0-1 12a1 1 0 01-1 1H8a1 1 0 01-1-1L6 7h12z"
-                            />
-                          </svg>
-                        </button>
+                        <QuoteRemoveButton itemId={item.id} />
                       </div>
 
                       {item.sizeLabel ? (
@@ -177,30 +153,12 @@ export default function QuoteSidebar() {
                         </p>
                       ) : null}
 
-                      <div className="mt-auto flex h-8 w-fit items-stretch rounded-btn border border-brand-border">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity - 1)
-                          }
-                          aria-label={t("decreaseQuantity")}
-                          className="flex w-8 items-center justify-center text-brand-black"
-                        >
-                          −
-                        </button>
-                        <span className="flex w-8 items-center justify-center text-sm text-brand-black">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity + 1)
-                          }
-                          aria-label={t("increaseQuantity")}
-                          className="flex w-8 items-center justify-center text-brand-black"
-                        >
-                          +
-                        </button>
+                      <div className="mt-auto">
+                        <QuoteQuantityStepper
+                          itemId={item.id}
+                          quantity={item.quantity}
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </li>

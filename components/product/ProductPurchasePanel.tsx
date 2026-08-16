@@ -19,6 +19,7 @@ export default function ProductPurchasePanel({
   productSlug,
   productNameEn,
   productNameAr,
+  categoryName,
   imageUrl,
   sizes,
 }: {
@@ -26,6 +27,10 @@ export default function ProductPurchasePanel({
   productSlug: string;
   productNameEn: string;
   productNameAr: string;
+  /** For the quote line item's snapshot only (Prompt 19's summary-page
+   *  category subtitle) -- this panel doesn't display it itself, the page
+   *  already shows the category label above the product title. */
+  categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
   sizes: Size[];
 }) {
@@ -103,6 +108,8 @@ export default function ProductPurchasePanel({
           productSlug={productSlug}
           productNameEn={productNameEn}
           productNameAr={productNameAr}
+          categoryNameEn={categoryName?.en ?? null}
+          categoryNameAr={categoryName?.ar ?? null}
           imageUrl={imageUrl}
           sizeId={selectedSize?.id ?? null}
           sizeLabel={selectedSize?.sizeLabel ?? null}

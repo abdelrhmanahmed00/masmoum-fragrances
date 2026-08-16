@@ -13,6 +13,11 @@ type ProductCardProps = {
   name_en: string;
   name_ar: string;
   categoryLabel: string | null;
+  /** Same category, both languages -- passed straight through to
+   *  AddToQuoteButton (Prompt 19) for the quote line item's snapshot,
+   *  same reasoning as name_en/name_ar above. `categoryLabel` above stays
+   *  as the already-localized string this card itself displays. */
+  categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
   defaultSize: { id: string; label: string } | null;
 };
@@ -29,6 +34,7 @@ export default function ProductCard({
   name_en,
   name_ar,
   categoryLabel,
+  categoryName,
   imageUrl,
   defaultSize,
 }: ProductCardProps) {
@@ -87,6 +93,8 @@ export default function ProductCard({
             productSlug={slug}
             productNameEn={name_en}
             productNameAr={name_ar}
+            categoryNameEn={categoryName?.en ?? null}
+            categoryNameAr={categoryName?.ar ?? null}
             imageUrl={imageUrl}
             sizeId={defaultSize?.id ?? null}
             sizeLabel={defaultSize?.label ?? null}

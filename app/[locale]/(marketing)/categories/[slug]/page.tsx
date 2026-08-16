@@ -134,6 +134,7 @@ export default async function CategoryPage({
                     : product.categoryName.en
                   : null
               }
+              categoryName={product.categoryName}
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
             />

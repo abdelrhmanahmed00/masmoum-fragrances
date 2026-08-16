@@ -75,6 +75,11 @@
     "increaseQuantity": "زيادة الكمية",
     "totalItems": "إجمالي العناصر: {count}",
     "totalQuantity": "إجمالي الكمية: {count} قطعة",
-    "requestQuote": "اطلب عرض سعر"
+    "requestQuote": "اطلب عرض سعر",
+    "backToHome": "العودة إلى الرئيسية",
+    "columnProduct": "المنتج",
+    "columnSize": "الحجم",
+    "columnQty": "الكمية (قطعة)",
+    "columnAction": "إجراء"
   }
 }

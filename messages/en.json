@@ -75,6 +75,11 @@
     "increaseQuantity": "Increase quantity",
     "totalItems": "Total Items: {count}",
     "totalQuantity": "Total Qty: {count} PCS",
-    "requestQuote": "Request a Quote"
+    "requestQuote": "Request a Quote",
+    "backToHome": "Back to home",
+    "columnProduct": "Product",
+    "columnSize": "Size",
+    "columnQty": "Qty (PCS)",
+    "columnAction": "Action"
   }
 }

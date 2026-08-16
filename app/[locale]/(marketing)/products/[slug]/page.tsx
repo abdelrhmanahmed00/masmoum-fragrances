@@ -88,6 +88,7 @@ export default async function ProductPage({
             productSlug={product.slug}
             productNameEn={product.name_en}
             productNameAr={product.name_ar}
+            categoryName={product.categoryName}
             imageUrl={images[0]?.url ?? null}
             sizes={product.sizes}
           />

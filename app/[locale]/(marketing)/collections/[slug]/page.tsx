@@ -62,6 +62,7 @@ export default async function CollectionPage({
                     : product.categoryName.en
                   : null
               }
+              categoryName={product.categoryName}
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
             />

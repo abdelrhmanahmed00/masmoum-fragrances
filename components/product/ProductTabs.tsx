@@ -85,6 +85,7 @@ export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
                         : product.categoryName.en)
                     : null
                 }
+                categoryName={product.categoryName}
                 imageUrl={product.imageUrl}
                 defaultSize={product.defaultSize}
               />

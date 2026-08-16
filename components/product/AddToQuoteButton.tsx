@@ -9,6 +9,10 @@ type AddToQuoteButtonProps = {
   productSlug: string;
   productNameEn: string;
   productNameAr: string;
+  /** For the quote line item's snapshot only (Prompt 19's summary-page
+   *  category subtitle) -- not shown by this button itself. */
+  categoryNameEn: string | null;
+  categoryNameAr: string | null;
   imageUrl: string | null;
   /** Card usage (Prompt 9) passes the product's default size since there's
    *  no size-selection UI there; the detail page (Prompt 12) passes
@@ -38,6 +42,8 @@ export default function AddToQuoteButton({
   productSlug,
   productNameEn,
   productNameAr,
+  categoryNameEn,
+  categoryNameAr,
   imageUrl,
   sizeId = null,
   sizeLabel = null,
@@ -64,6 +70,8 @@ export default function AddToQuoteButton({
       sizeLabel,
       productNameEn,
       productNameAr,
+      categoryNameEn,
+      categoryNameAr,
       imageUrl,
       quantity,
     });
