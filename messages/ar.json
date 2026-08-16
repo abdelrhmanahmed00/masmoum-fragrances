@@ -51,5 +51,17 @@
     "mute": "كتم الصوت",
     "unmute": "تشغيل الصوت",
     "slideLabel": "فيديو {number}"
+  },
+  "ProductDetail": {
+    "description": "الوصف",
+    "notes": "النوتات",
+    "topNotes": "النوتات العلوية",
+    "middleNotes": "النوتات الوسطى",
+    "baseNotes": "النوتات القاعدية",
+    "moq": "الحد الأدنى للطلب: {count} وحدة",
+    "size": "الحجم",
+    "quantity": "الكمية",
+    "decreaseQuantity": "إنقاص الكمية",
+    "increaseQuantity": "زيادة الكمية"
   }
 }

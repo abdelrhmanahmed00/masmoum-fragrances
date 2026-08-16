@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { getPublicStorageUrl } from "@/lib/supabase/storage";
 import { REVALIDATE_SECONDS } from "@/lib/config";
 import type { ProductCardData } from "@/types/product";
+import type { ProductDetail } from "@/types/product-detail";
 
 // Shared by the category/collection listing pages (this file). Note there
 // is some intentional overlap with ProductsSection.tsx's own inline
@@ -185,4 +186,103 @@ export async function getCollectionProducts({
   return error || !data
     ? []
     : data.map((p) => toCardData(p as unknown as RawProduct));
+}
+
+export async function getActiveProductSlugs(): Promise<{ slug: string }[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.product);
+  const { data, error } = await supabase
+    .from("products")
+    .select("slug")
+    .eq("is_active", true);
+
+  return error || !data ? [] : data;
+}
+
+const PRODUCT_DETAIL_SELECT = `
+  id, slug, name_en, name_ar, description_en, description_ar, gender,
+  fragrance_top_notes_en, fragrance_top_notes_ar,
+  fragrance_middle_notes_en, fragrance_middle_notes_ar,
+  fragrance_base_notes_en, fragrance_base_notes_ar,
+  moq,
+  category:categories(name_en, name_ar),
+  images:product_images(storage_path, is_primary, sort_order),
+  sizes:product_sizes(id, size_label, sort_order, is_active)
+`;
+
+type RawProductDetail = {
+  id: string;
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  description_en: string | null;
+  description_ar: string | null;
+  gender: ProductDetail["gender"];
+  fragrance_top_notes_en: string | null;
+  fragrance_top_notes_ar: string | null;
+  fragrance_middle_notes_en: string | null;
+  fragrance_middle_notes_ar: string | null;
+  fragrance_base_notes_en: string | null;
+  fragrance_base_notes_ar: string | null;
+  moq: number;
+  category: RawCategory;
+  images: { storage_path: string; is_primary: boolean; sort_order: number }[];
+  sizes: {
+    id: string;
+    size_label: string;
+    sort_order: number;
+    is_active: boolean;
+  }[];
+};
+
+export async function getProductBySlug(
+  slug: string
+): Promise<ProductDetail | null> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.product);
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_DETAIL_SELECT)
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const raw = data as unknown as RawProductDetail;
+
+  return {
+    id: raw.id,
+    slug: raw.slug,
+    name_en: raw.name_en,
+    name_ar: raw.name_ar,
+    description_en: raw.description_en,
+    description_ar: raw.description_ar,
+    gender: raw.gender,
+    fragrance_top_notes_en: raw.fragrance_top_notes_en,
+    fragrance_top_notes_ar: raw.fragrance_top_notes_ar,
+    fragrance_middle_notes_en: raw.fragrance_middle_notes_en,
+    fragrance_middle_notes_ar: raw.fragrance_middle_notes_ar,
+    fragrance_base_notes_en: raw.fragrance_base_notes_en,
+    fragrance_base_notes_ar: raw.fragrance_base_notes_ar,
+    moq: raw.moq,
+    categoryName: raw.category
+      ? { en: raw.category.name_en, ar: raw.category.name_ar }
+      : null,
+    images: raw.images
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((img) => ({
+        storagePath: img.storage_path,
+        isPrimary: img.is_primary,
+        sortOrder: img.sort_order,
+      })),
+    sizes: raw.sizes
+      .filter((s) => s.is_active)
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((s) => ({
+        id: s.id,
+        sizeLabel: s.size_label,
+        sortOrder: s.sort_order,
+      })),
+  };
 }

@@ -51,5 +51,17 @@
     "mute": "Mute video",
     "unmute": "Unmute video",
     "slideLabel": "Video {number}"
+  },
+  "ProductDetail": {
+    "description": "Description",
+    "notes": "Fragrance Notes",
+    "topNotes": "Top Notes",
+    "middleNotes": "Middle Notes",
+    "baseNotes": "Base Notes",
+    "moq": "Minimum Order Quantity: {count} units",
+    "size": "Size",
+    "quantity": "Quantity",
+    "decreaseQuantity": "Decrease quantity",
+    "increaseQuantity": "Increase quantity"
   }
 }
