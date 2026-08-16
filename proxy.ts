@@ -23,6 +23,20 @@ const supabaseHostname = new URL(
  * stricter CSP becomes a hard requirement.
  */
 function securityHeaders(): Record<string, string> {
+  const isDev = process.env.NODE_ENV !== "production";
+
+  // React's dev-mode debugging tooling (reconstructing server-side error
+  // stacks in the browser, among other things) calls eval(), which
+  // 'script-src' otherwise blocks. Confirmed dev-only for this project by
+  // downloading and grepping the actual built JS chunks rather than just
+  // trusting the console message: eval( appears in dev bundles (the
+  // Turbopack runtime chunk and react-server-dom-turbopack) and in ZERO
+  // of the 9 production chunks from a real `next build`. So this is only
+  // ever added outside production — the production CSP never includes it.
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
+
   const csp = [
     "default-src 'self'",
     // 'unsafe-inline' is required here: Next.js's App Router injects its
@@ -39,7 +53,7 @@ function securityHeaders(): Record<string, string> {
     // lib/config.ts). 'unsafe-inline' does weaken this directive
     // specifically against inline-script injection; every other
     // directive below is unaffected and still fully enforced.
-    "script-src 'self' 'unsafe-inline'",
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHostname}`,
     `connect-src 'self' https://${supabaseHostname}`,
