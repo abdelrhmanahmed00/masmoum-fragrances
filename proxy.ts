@@ -1,6 +1,7 @@
 import createIntlMiddleware from "next-intl/middleware";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
+import { createMiddlewareClient } from "@/lib/supabase/middleware";
 
 // NOTE: Next.js 16 renamed the `middleware.ts` file convention to
 // `proxy.ts` (export name `proxy` instead of `middleware`). See
@@ -74,18 +75,94 @@ function securityHeaders(): Record<string, string> {
   };
 }
 
-export function proxy(request: NextRequest) {
-  const response = handleI18nRouting(request);
-
+function withSecurityHeaders(response: NextResponse): NextResponse {
   for (const [key, value] of Object.entries(securityHeaders())) {
     response.headers.set(key, value);
   }
-
   return response;
+}
+
+const ADMIN_LOGIN_PATH = "/admin/login";
+const ADMIN_HOME_PATH = "/admin";
+
+/**
+ * Redirects to `pathname`, carrying over any cookies `source` has queued
+ * (a refreshed session token) so the redirect itself doesn't lose that
+ * refresh -- discarding `source` and building a bare NextResponse.redirect
+ * would drop a just-refreshed access token, forcing another refresh (or
+ * worse, a spurious logout) on the very next request.
+ */
+function redirectPreservingCookies(
+  request: NextRequest,
+  pathname: string,
+  source: NextResponse
+): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  const redirectResponse = NextResponse.redirect(url);
+  for (const cookie of source.cookies.getAll()) {
+    redirectResponse.cookies.set(cookie);
+  }
+  return withSecurityHeaders(redirectResponse);
+}
+
+/**
+ * Admin auth (Prompt 21). Deliberately scoped to /admin/* only, not run
+ * on every public marketing request: getClaims() does real JWT
+ * verification work (a cached JWKS lookup, occasionally a network call --
+ * see @supabase/auth-js's own getClaims() doc comment) that anonymous
+ * visitors browsing the public catalog have no reason to pay for, on a
+ * site whose whole caching strategy (lib/config.ts) exists to minimize
+ * per-request cost at ~10k visitors/day.
+ *
+ * Single-admin model (approved architecture): authorization = authentication.
+ * Any successfully authenticated session IS the admin -- no roles table,
+ * no is_admin() check. See the 0014 migration for the RLS side of this
+ * same decision.
+ */
+async function handleAdminRoute(request: NextRequest): Promise<NextResponse> {
+  const { supabase, getResponse } = createMiddlewareClient(request);
+
+  // IMPORTANT: no other logic between createMiddlewareClient and the
+  // getClaims() call below -- the @supabase/ssr package's own
+  // createServerClient doc comment and Supabase's Next.js SSR guide both
+  // warn that inserting logic here is a common source of "random logout"
+  // bugs, since it can end up reading stale/pre-refresh cookie state.
+  const { data } = await supabase.auth.getClaims();
+  const isAuthenticated = Boolean(data?.claims);
+
+  const response = getResponse();
+  const isLoginPage = request.nextUrl.pathname === ADMIN_LOGIN_PATH;
+
+  if (!isAuthenticated && !isLoginPage) {
+    return redirectPreservingCookies(request, ADMIN_LOGIN_PATH, response);
+  }
+
+  if (isAuthenticated && isLoginPage) {
+    return redirectPreservingCookies(request, ADMIN_HOME_PATH, response);
+  }
+
+  return withSecurityHeaders(response);
+}
+
+export async function proxy(request: NextRequest) {
+  // /admin is a separate, non-locale-prefixed route tree (its own root
+  // layout under app/admin/, not app/[locale]/) -- it must never go
+  // through next-intl's routing (which would otherwise try to redirect
+  // e.g. /admin/login to /en/admin/login).
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    return handleAdminRoute(request);
+  }
+
+  const response = handleI18nRouting(request);
+  return withSecurityHeaders(response);
 }
 
 export const config = {
   // Run on all page routes; skip API routes, Next.js internals, and files
-  // with an extension (static assets).
+  // with an extension (static assets). /admin is intentionally included
+  // here (not excluded) -- it's handled by the branch above, not by
+  // next-intl.
   matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
 };

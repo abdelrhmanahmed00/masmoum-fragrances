@@ -1,5 +1,7 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 
 /**
  * Privileged Supabase client for server-only code (Route Handlers, Server
@@ -97,6 +99,62 @@ export function createAnonMutationClient() {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+  });
+}
+
+/**
+ * Cookie-aware, session-aware anon client (Prompt 21 — admin auth). Unlike
+ * the three clients above, this one is NOT anonymous-only: it reads the
+ * caller's Supabase Auth session from cookies via @supabase/ssr's
+ * getAll/setAll contract, so `.auth.getClaims()` / `.auth.getUser()` /
+ * `.auth.signInWithPassword()` / `.auth.signOut()` all work against the
+ * real logged-in admin (or lack thereof), and RLS's `auth.uid()` /
+ * `to authenticated` policies (0014 migration) become meaningful.
+ *
+ * This is the exact "one function, two contexts" pattern from Supabase's
+ * own SSR guide (https://supabase.com/docs/guides/auth/server-side/nextjs,
+ * cross-checked against the actual @supabase/ssr APIs installed in this
+ * project — see the Prompt 21 report):
+ *   - In a Server Component, `cookieStore.set()` throws (Server Components
+ *     can't write response cookies) — caught and ignored here. That's
+ *     fine as long as proxy.ts's session refresh (lib/supabase/middleware.ts)
+ *     is running, which it is for every /admin request; that's what
+ *     actually keeps the session's access token fresh across requests.
+ *   - In a Server Action or Route Handler, `cookieStore.set()` succeeds,
+ *     which is required for sign-in/sign-out to actually persist.
+ *
+ * `cookies()` is awaited — required as of the async-dynamic-APIs change
+ * (see the equivalent `await params` pattern used throughout app/, e.g.
+ * app/[locale]/layout.tsx).
+ */
+export async function createSessionClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      "Missing Supabase public environment variables: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  const cookieStore = await cookies();
+
+  return createServerClient(supabaseUrl, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Called from a Server Component -- see the function's own
+          // comment above for why this is expected and harmless.
+        }
+      },
     },
   });
 }
