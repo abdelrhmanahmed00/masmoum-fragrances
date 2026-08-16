@@ -1,63 +1,34 @@
 import { getTranslations } from "next-intl/server";
 import { createPublicClient } from "@/lib/supabase/server";
-import { getPublicStorageUrl } from "@/lib/supabase/storage";
 import { REVALIDATE_SECONDS } from "@/lib/config";
+import {
+  PRODUCT_CARD_SELECT,
+  toCardData,
+  type RawProductCard,
+} from "@/lib/catalog";
 import ProductTabs from "@/components/product/ProductTabs";
-import type { ProductCardData, ProductTabData } from "@/types/product";
+import type { ProductTabData } from "@/types/product";
+
+// PRODUCT_CARD_SELECT/toCardData used to be duplicated here (Prompt 9) —
+// consolidated into lib/catalog.ts as of Prompt 14, which needed to change
+// the query/mapping shape (adding each product's default size) in lockstep
+// across every card-rendering call site anyway.
 
 const PAGE_SIZE = 8;
-
-type RawCategory = { name_en: string; name_ar: string } | null;
-type RawImage = { storage_path: string; is_primary: boolean };
-type RawProduct = {
-  id: string;
-  slug: string;
-  name_en: string;
-  name_ar: string;
-  category: RawCategory;
-  images: RawImage[];
-};
-
-const PRODUCT_SELECT =
-  "id, slug, name_en, name_ar, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary)";
-
-function toCardData(product: RawProduct): ProductCardData {
-  // Primary image, falling back to the first available image, falling
-  // back to null (ProductCard renders a placeholder graphic in that case
-  // rather than crashing — shouldn't happen once data entry is done
-  // properly, but a product could theoretically have zero images).
-  const primaryImage =
-    product.images.find((img) => img.is_primary) ?? product.images[0] ?? null;
-
-  return {
-    id: product.id,
-    slug: product.slug,
-    name_en: product.name_en,
-    name_ar: product.name_ar,
-    // category can legitimately come back null even though category_id is
-    // NOT NULL in the DB: if the category itself is is_active = false, the
-    // categories RLS policy hides it from this embed. Handled as an
-    // optional field, not an error.
-    categoryName: product.category
-      ? { en: product.category.name_en, ar: product.category.name_ar }
-      : null,
-    imageUrl: primaryImage
-      ? getPublicStorageUrl("product-images", primaryImage.storage_path)
-      : null,
-  };
-}
 
 async function getAllProductsTab(): Promise<ProductTabData> {
   const supabase = createPublicClient(REVALIDATE_SECONDS.category);
   const { data, error, count } = await supabase
     .from("products")
-    .select(PRODUCT_SELECT, { count: "exact" })
+    .select(PRODUCT_CARD_SELECT, { count: "exact" })
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
     .range(0, PAGE_SIZE - 1);
 
   const products =
-    error || !data ? [] : data.map((p) => toCardData(p as unknown as RawProduct));
+    error || !data
+      ? []
+      : data.map((p) => toCardData(p as unknown as RawProductCard));
 
   return {
     id: "all",
@@ -86,16 +57,19 @@ async function getCollectionTab(collection: {
   // .eq below, filters to only products actually in this collection.
   const { data, error, count } = await supabase
     .from("products")
-    .select(`${PRODUCT_SELECT}, product_collections!inner(collection_id)`, {
-      count: "exact",
-    })
+    .select(
+      `${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`,
+      { count: "exact" }
+    )
     .eq("is_active", true)
     .eq("product_collections.collection_id", collection.id)
     .order("sort_order", { ascending: true })
     .range(0, PAGE_SIZE - 1);
 
   const products =
-    error || !data ? [] : data.map((p) => toCardData(p as unknown as RawProduct));
+    error || !data
+      ? []
+      : data.map((p) => toCardData(p as unknown as RawProductCard));
 
   return {
     id: collection.id,

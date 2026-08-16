@@ -3,10 +3,18 @@ import { Link } from "@/i18n/navigation";
 import AddToQuoteButton from "./AddToQuoteButton";
 
 type ProductCardProps = {
+  id: string;
   slug: string;
+  /** Already localized, for display (title text + image alt). */
   name: string;
+  /** Both languages, passed straight through to AddToQuoteButton so the
+   *  quote line item can be displayed in either locale later without a
+   *  re-fetch — see types/quote.ts. */
+  name_en: string;
+  name_ar: string;
   categoryLabel: string | null;
   imageUrl: string | null;
+  defaultSize: { id: string; label: string } | null;
 };
 
 // No "use client" here: it has no hooks of its own. It's fine that it's
@@ -15,10 +23,14 @@ type ProductCardProps = {
 // (AddToQuoteButton) rather than forcing this whole presentational card
 // to own that boundary.
 export default function ProductCard({
+  id,
   slug,
   name,
+  name_en,
+  name_ar,
   categoryLabel,
   imageUrl,
+  defaultSize,
 }: ProductCardProps) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card bg-brand-white shadow-card">
@@ -70,7 +82,15 @@ export default function ProductCard({
           {name}
         </Link>
         <div className="mt-3 w-full">
-          <AddToQuoteButton productSlug={slug} />
+          <AddToQuoteButton
+            productId={id}
+            productSlug={slug}
+            productNameEn={name_en}
+            productNameAr={name_ar}
+            imageUrl={imageUrl}
+            sizeId={defaultSize?.id ?? null}
+            sizeLabel={defaultSize?.label ?? null}
+          />
         </div>
       </div>
     </article>

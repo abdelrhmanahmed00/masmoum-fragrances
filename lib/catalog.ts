@@ -4,29 +4,42 @@ import { REVALIDATE_SECONDS } from "@/lib/config";
 import type { ProductCardData } from "@/types/product";
 import type { ProductDetail } from "@/types/product-detail";
 
-// Shared by the category/collection listing pages (this file). Note there
-// is some intentional overlap with ProductsSection.tsx's own inline
-// product-fetching logic (Prompt 9) — that component is left as-is rather
-// than refactored to share this file, to avoid touching already-shipped,
-// verified code outside this prompt's stated scope.
+// Shared by the category/collection listing pages AND, as of Prompt 14,
+// ProductsSection.tsx too (previously an intentional duplicate — see
+// Prompt 11's note; consolidated now because Prompt 14 needs to change the
+// card query/mapping shape in lockstep everywhere anyway, so the drift
+// risk of keeping two copies outweighs the churn of merging them).
 
-const PRODUCT_SELECT =
-  "id, slug, name_en, name_ar, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary)";
+export const PRODUCT_CARD_SELECT =
+  "id, slug, name_en, name_ar, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
 type RawImage = { storage_path: string; is_primary: boolean };
-type RawProduct = {
+type RawSize = {
+  id: string;
+  size_label: string;
+  sort_order: number;
+  is_active: boolean;
+};
+export type RawProductCard = {
   id: string;
   slug: string;
   name_en: string;
   name_ar: string;
   category: RawCategory;
   images: RawImage[];
+  sizes: RawSize[];
 };
 
-function toCardData(product: RawProduct): ProductCardData {
+export function toCardData(product: RawProductCard): ProductCardData {
   const primaryImage =
     product.images.find((img) => img.is_primary) ?? product.images[0] ?? null;
+
+  const defaultSize =
+    product.sizes
+      .filter((s) => s.is_active)
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)[0] ?? null;
 
   return {
     id: product.id,
@@ -38,6 +51,9 @@ function toCardData(product: RawProduct): ProductCardData {
       : null,
     imageUrl: primaryImage
       ? getPublicStorageUrl("product-images", primaryImage.storage_path)
+      : null,
+    defaultSize: defaultSize
+      ? { id: defaultSize.id, label: defaultSize.size_label }
       : null,
   };
 }
@@ -154,8 +170,8 @@ export async function getCategoryProducts({
     .from("products")
     .select(
       collectionId
-        ? `${PRODUCT_SELECT}, product_collections!inner(collection_id)`
-        : PRODUCT_SELECT
+        ? `${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`
+        : PRODUCT_CARD_SELECT
     )
     .eq("is_active", true)
     .eq("category_id", categoryId)
@@ -167,7 +183,7 @@ export async function getCategoryProducts({
   const { data, error } = await query;
   return error || !data
     ? []
-    : data.map((p) => toCardData(p as unknown as RawProduct));
+    : data.map((p) => toCardData(p as unknown as RawProductCard));
 }
 
 export async function getCollectionProducts({
@@ -178,14 +194,14 @@ export async function getCollectionProducts({
   const supabase = createPublicClient(REVALIDATE_SECONDS.category);
   const { data, error } = await supabase
     .from("products")
-    .select(`${PRODUCT_SELECT}, product_collections!inner(collection_id)`)
+    .select(`${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`)
     .eq("is_active", true)
     .eq("product_collections.collection_id", collectionId)
     .order("sort_order", { ascending: true });
 
   return error || !data
     ? []
-    : data.map((p) => toCardData(p as unknown as RawProduct));
+    : data.map((p) => toCardData(p as unknown as RawProductCard));
 }
 
 export async function getActiveProductSlugs(): Promise<{ slug: string }[]> {

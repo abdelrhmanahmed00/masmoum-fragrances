@@ -5,6 +5,10 @@ export type ProductCardData = {
   name_ar: string;
   categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
+  /** First active size by sort_order, or null if the product has none.
+   *  Cards have no size-selection UI (Prompt 12), so "Add to Quote" from
+   *  a card needs a default to add (Prompt 14). */
+  defaultSize: { id: string; label: string } | null;
 };
 
 export type ProductTabData = {

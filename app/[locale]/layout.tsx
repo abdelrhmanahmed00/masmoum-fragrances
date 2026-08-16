@@ -7,6 +7,7 @@ import { routing } from "@/i18n/routing";
 import { siteConfig } from "@/lib/config";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { QuoteProvider } from "@/components/quote/QuoteProvider";
 import "../globals.css";
 
 // Reference site (shop-gulforchid.com) uses "Jost" for both headings and
@@ -69,9 +70,11 @@ export default async function LocaleLayout({
     >
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider messages={messages}>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <QuoteProvider>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </QuoteProvider>
         </NextIntlClientProvider>
       </body>
     </html>

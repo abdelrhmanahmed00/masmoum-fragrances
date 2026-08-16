@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { useQuote } from "@/components/quote/QuoteProvider";
 
 // Brand wordmark — a proper noun, so it stays as-is in both locales rather
 // than going through next-intl. Real logo image swaps in when the client
@@ -27,13 +28,16 @@ const NAV_ITEMS = [
   { key: "contact", href: "/contact" },
 ] as const;
 
-// Static placeholder until the quote system (a later prompt) provides
-// real cart-like state.
-const QUOTE_COUNT = 0;
-
 export default function Header() {
   const t = useTranslations("Header");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // totalItems = distinct line count, matching the client's own "Quote (3)"
+  // spec for this pill (their Quote Summary example distinguishes "TOTAL
+  // ITEMS" from "TOTAL QTY" — the pill uses the former; the latter is for
+  // the future summary page). Starts at 0 identically on server and first
+  // client render (see QuoteProvider's hydration note), then updates once
+  // localStorage is read post-mount — no hydration mismatch.
+  const { totalItems } = useQuote();
 
   return (
     <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-white">
@@ -89,7 +93,7 @@ export default function Header() {
             />
           </svg>
           <span>
-            {t("quote")} ({QUOTE_COUNT})
+            {t("quote")} ({totalItems})
           </span>
         </Link>
       </div>

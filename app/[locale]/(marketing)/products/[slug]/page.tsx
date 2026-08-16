@@ -83,7 +83,14 @@ export default async function ProductPage({
             </p>
           ) : null}
 
-          <ProductPurchasePanel productSlug={product.slug} sizes={product.sizes} />
+          <ProductPurchasePanel
+            productId={product.id}
+            productSlug={product.slug}
+            productNameEn={product.name_en}
+            productNameAr={product.name_ar}
+            imageUrl={images[0]?.url ?? null}
+            sizes={product.sizes}
+          />
 
           <div className="mt-8">
             {description ? (

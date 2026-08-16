@@ -11,14 +11,22 @@ type Size = { id: string; sizeLabel: string };
 // to the Add to Cart button, which is flex-grow (takes remaining width).
 // Replicated here with "Add to Quote" in place of "Add to Cart" per the
 // project's core requirement. Size selection itself has no confirmed
-// visual pattern from the reference (see ProductPurchasePanel's caller for
-// why) — styled as pills matching this project's own established chip
-// language (Header's Quote pill, ProductTabs, FilterGroup).
+// visual pattern from the reference (see the page's own comment for why)
+// — styled as pills matching this project's own established chip language
+// (Header's Quote pill, ProductTabs, FilterGroup).
 export default function ProductPurchasePanel({
+  productId,
   productSlug,
+  productNameEn,
+  productNameAr,
+  imageUrl,
   sizes,
 }: {
+  productId: string;
   productSlug: string;
+  productNameEn: string;
+  productNameAr: string;
+  imageUrl: string | null;
   sizes: Size[];
 }) {
   const t = useTranslations("ProductDetail");
@@ -26,6 +34,8 @@ export default function ProductPurchasePanel({
     sizes[0]?.id
   );
   const [quantity, setQuantity] = useState(1);
+
+  const selectedSize = sizes.find((s) => s.id === selectedSizeId) ?? null;
 
   return (
     <div className="mt-6 space-y-6">
@@ -89,8 +99,13 @@ export default function ProductPurchasePanel({
         </div>
 
         <AddToQuoteButton
+          productId={productId}
           productSlug={productSlug}
-          selectedSizeId={selectedSizeId}
+          productNameEn={productNameEn}
+          productNameAr={productNameAr}
+          imageUrl={imageUrl}
+          sizeId={selectedSize?.id ?? null}
+          sizeLabel={selectedSize?.sizeLabel ?? null}
           quantity={quantity}
           className="flex-1 rounded-btn border border-brand-black bg-brand-black px-4 text-sm font-medium text-brand-white transition-colors hover:bg-brand-white hover:text-brand-black"
         />

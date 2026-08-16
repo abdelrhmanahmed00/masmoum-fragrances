@@ -73,8 +73,11 @@ export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
             {activeTab.products.map((product) => (
               <ProductCard
                 key={product.id}
+                id={product.id}
                 slug={product.slug}
                 name={locale === "ar" ? product.name_ar : product.name_en}
+                name_en={product.name_en}
+                name_ar={product.name_ar}
                 categoryLabel={
                   product.categoryName
                     ? (locale === "ar"
@@ -83,6 +86,7 @@ export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
                     : null
                 }
                 imageUrl={product.imageUrl}
+                defaultSize={product.defaultSize}
               />
             ))}
           </div>
