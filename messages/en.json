@@ -34,5 +34,12 @@
     "emptyState": "Catalog coming soon — check back shortly.",
     "seeMore": "See more",
     "addToQuote": "Add to Quote"
+  },
+  "Videos": {
+    "heading": "See It In Action",
+    "emptyState": "Videos coming soon — check back shortly.",
+    "mute": "Mute video",
+    "unmute": "Unmute video",
+    "slideLabel": "Video {number}"
   }
 }
