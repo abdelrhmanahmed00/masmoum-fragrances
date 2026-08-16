@@ -62,3 +62,41 @@ export function createPublicClient(revalidateSeconds: number) {
     },
   });
 }
+
+/**
+ * Anon-privileged server-side client for MUTATIONS from Server Actions
+ * (Prompt 19's quote submission and any future public-insert flow) — as
+ * opposed to createPublicClient above, which is for cached GET-style reads.
+ *
+ * Deliberately not createServiceRoleClient: quote_requests/quote_request_items
+ * (0008/0009 migrations) grant anon INSERT with RLS policies that already
+ * express exactly the access this needs (status must be 'new'; nothing else
+ * granted) — reaching for the service role here would bypass those policies
+ * for no benefit, the opposite of least privilege. See the Prompt 19 report
+ * for the full reasoning.
+ *
+ * Also deliberately not createPublicClient: that function wraps every fetch
+ * with `next: { revalidate }`, which only makes sense for cacheable GET
+ * reads. Supabase insert/update calls are POSTs, which Next's fetch cache
+ * never caches regardless — reusing that helper here would carry a
+ * `revalidateSeconds` parameter that doesn't apply to what it's doing,
+ * which is misleading to read even though it'd be functionally harmless.
+ * This client uses a plain, uncached fetch instead.
+ */
+export function createAnonMutationClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      "Missing Supabase public environment variables: NEXT_PUBLIC_SUPABASE_URL and/or NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}

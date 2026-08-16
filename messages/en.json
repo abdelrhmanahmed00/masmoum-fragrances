@@ -81,5 +81,36 @@
     "columnSize": "Size",
     "columnQty": "Qty (PCS)",
     "columnAction": "Action"
+  },
+  "QuoteRequest": {
+    "heading": "Request a Quote",
+    "backToQuote": "Back to quote",
+    "summary": "You're requesting a quote for {items} item(s), {qty} PCS total.",
+    "labelFullName": "Full Name",
+    "labelCompanyName": "Company Name",
+    "labelCountry": "Country",
+    "labelCity": "City",
+    "labelEmail": "Email",
+    "labelPhone": "Phone / WhatsApp",
+    "labelBusinessType": "Business Type",
+    "businessTypePlaceholder": "Select…",
+    "businessTypeRetailer": "Retailer",
+    "businessTypeDistributor": "Distributor",
+    "businessTypeOnlineStore": "Online Store",
+    "businessTypeOther": "Other",
+    "labelMessage": "Message / Notes",
+    "submit": "Submit Request",
+    "submitting": "Submitting…",
+    "fieldErrorRequired": "This field is required.",
+    "fieldErrorInvalid": "Enter a valid email address.",
+    "errorValidation": "Please fix the highlighted fields and try again.",
+    "errorItemsInvalid": "Your quote could not be submitted — please review it and try again.",
+    "errorRateLimited": "Too many attempts. Please wait a few minutes and try again.",
+    "errorSubmissionFailed": "Something went wrong submitting your request. Please try again."
+  },
+  "QuoteConfirmation": {
+    "heading": "Thank You!",
+    "message": "Your quote request has been received. Our team will get back to you shortly.",
+    "continueShopping": "Continue Shopping"
   }
 }

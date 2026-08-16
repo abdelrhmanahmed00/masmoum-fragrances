@@ -81,5 +81,36 @@
     "columnSize": "الحجم",
     "columnQty": "الكمية (قطعة)",
     "columnAction": "إجراء"
+  },
+  "QuoteRequest": {
+    "heading": "اطلب عرض سعر",
+    "backToQuote": "العودة إلى عرض السعر",
+    "summary": "أنت تطلب عرض سعر لعدد {items} عنصر، بإجمالي {qty} قطعة.",
+    "labelFullName": "الاسم الكامل",
+    "labelCompanyName": "اسم الشركة",
+    "labelCountry": "الدولة",
+    "labelCity": "المدينة",
+    "labelEmail": "البريد الإلكتروني",
+    "labelPhone": "الهاتف / واتساب",
+    "labelBusinessType": "نوع النشاط التجاري",
+    "businessTypePlaceholder": "اختر…",
+    "businessTypeRetailer": "تاجر تجزئة",
+    "businessTypeDistributor": "موزّع",
+    "businessTypeOnlineStore": "متجر إلكتروني",
+    "businessTypeOther": "أخرى",
+    "labelMessage": "ملاحظات / رسالة",
+    "submit": "إرسال الطلب",
+    "submitting": "جارٍ الإرسال…",
+    "fieldErrorRequired": "هذا الحقل مطلوب.",
+    "fieldErrorInvalid": "أدخل بريدًا إلكترونيًا صحيحًا.",
+    "errorValidation": "يرجى تصحيح الحقول المحددة والمحاولة مرة أخرى.",
+    "errorItemsInvalid": "تعذّر إرسال عرض السعر — يرجى مراجعته والمحاولة مرة أخرى.",
+    "errorRateLimited": "محاولات كثيرة جدًا. يرجى الانتظار بضع دقائق ثم المحاولة مرة أخرى.",
+    "errorSubmissionFailed": "حدث خطأ أثناء إرسال طلبك. يرجى المحاولة مرة أخرى."
+  },
+  "QuoteConfirmation": {
+    "heading": "شكرًا لك!",
+    "message": "تم استلام طلب عرض السعر الخاص بك. سيتواصل معك فريقنا قريبًا.",
+    "continueShopping": "متابعة التسوق"
   }
 }
