@@ -25,7 +25,21 @@ const supabaseHostname = new URL(
 function securityHeaders(): Record<string, string> {
   const csp = [
     "default-src 'self'",
-    "script-src 'self'",
+    // 'unsafe-inline' is required here: Next.js's App Router injects its
+    // own inline bootstrap scripts (self.__next_f.push(...), used to
+    // stream RSC payloads for hydration) on every page, in both dev and
+    // production — confirmed by inspecting real build output, not
+    // assumed. Without 'unsafe-inline' (or a nonce), the browser blocks
+    // those scripts outright and client-side hydration never runs, i.e.
+    // the whole site becomes non-interactive. A nonce-based CSP was
+    // evaluated and rejected: nonces are per-request, which forces every
+    // page (homepage, collections/products/quote) off SSG/ISR onto full
+    // per-request rendering — directly contradicting this project's
+    // 10k-visitors/day performance plan (see the comment above and
+    // lib/config.ts). 'unsafe-inline' does weaken this directive
+    // specifically against inline-script injection; every other
+    // directive below is unaffected and still fully enforced.
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHostname}`,
     `connect-src 'self' https://${supabaseHostname}`,
