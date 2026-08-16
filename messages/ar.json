@@ -27,5 +27,12 @@
   "Hero": {
     "emptyStateTagline": "شريكك الموثوق في عطور الجملة",
     "slideLabel": "الشريحة {number}"
+  },
+  "Products": {
+    "heading": "منتجاتنا",
+    "allTab": "الكل",
+    "emptyState": "الكتالوج قريبًا — تابعونا.",
+    "seeMore": "عرض المزيد",
+    "addToQuote": "أضف إلى عرض السعر"
   }
 }

@@ -1,0 +1,78 @@
+import Image from "next/image";
+import { Link } from "@/i18n/navigation";
+import AddToQuoteButton from "./AddToQuoteButton";
+
+type ProductCardProps = {
+  slug: string;
+  name: string;
+  categoryLabel: string | null;
+  imageUrl: string | null;
+};
+
+// No "use client" here: it has no hooks of its own. It's fine that it's
+// imported by ProductTabs.tsx (a client component) — the "Add to Quote"
+// button's interactivity is isolated in its own small client component
+// (AddToQuoteButton) rather than forcing this whole presentational card
+// to own that boundary.
+export default function ProductCard({
+  slug,
+  name,
+  categoryLabel,
+  imageUrl,
+}: ProductCardProps) {
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-card bg-brand-white shadow-card">
+      <Link
+        href={`/products/${slug}`}
+        className="relative block aspect-square bg-brand-surface"
+      >
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={name}
+            fill
+            sizes="(min-width: 1024px) 25vw, 50vw"
+            className="object-cover"
+          />
+        ) : (
+          // Clean placeholder graphic — a product should always have a
+          // primary image once data entry is done properly, but this
+          // must not crash if one somehow doesn't.
+          <div className="flex h-full w-full items-center justify-center text-brand-gray">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-10 w-10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 16.5V6a1 1 0 011-1h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1zm0 0l6-6 4 4 3-3 5 5"
+              />
+              <circle cx="8" cy="8" r="1.5" />
+            </svg>
+          </div>
+        )}
+      </Link>
+
+      <div className="flex flex-1 flex-col items-center gap-1 p-4 text-center">
+        {categoryLabel ? (
+          <p className="text-xs tracking-wide text-brand-gray uppercase">
+            {categoryLabel}
+          </p>
+        ) : null}
+        <Link
+          href={`/products/${slug}`}
+          className="text-sm font-medium text-brand-black hover:text-brand-gray"
+        >
+          {name}
+        </Link>
+        <div className="mt-3 w-full">
+          <AddToQuoteButton productSlug={slug} />
+        </div>
+      </div>
+    </article>
+  );
+}

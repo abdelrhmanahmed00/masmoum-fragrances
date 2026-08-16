@@ -33,9 +33,19 @@
      default rounded-md (6px) already matches the reference's product image
      container radius exactly, so no override needed there. ---- */
   --radius-btn: 5px;
+  /* CONFIRMED separately (Prompt 9) — the product/collection card
+     component (.vikst-card, a different UI system on the reference site
+     than the official theme --btn-border-radius above) uses its own
+     22px radius. */
+  --radius-card: 22px;
 
-  /* ---- Shadow — CONFIRMED (--theme-shadow) ---- */
+  /* ---- Shadow — CONFIRMED (--theme-shadow, the official theme's
+     general-purpose shadow) ---- */
   --shadow-brand: 0 5px 15px 0 rgb(0 0 0 / 0.07);
+  /* CONFIRMED separately (Prompt 9) — .vikst-card's own shadow, distinct
+     from --shadow-brand above (different component system on the same
+     reference site). */
+  --shadow-card: 0 14px 40px 0 rgb(0 0 0 / 0.06);
 
   /* ---- Section spacing — CONFIRMED (--spacing-sections-desktop/tablet/
      mobile), converted to rem. Generous vertical rhythm between homepage
