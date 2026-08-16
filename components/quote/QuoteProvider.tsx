@@ -31,6 +31,13 @@ type QuoteContextValue = {
    *  render), but exposed for consumers that want to avoid a "your quote
    *  is empty" flash before the real state loads (e.g. a future sidebar). */
   isHydrated: boolean;
+  /** Sidebar visibility lives here (not a separate context) since it's
+   *  part of the same Quote domain and both QuoteSidebar and Header need
+   *  to share it — Header's Quote pill opens it, the sidebar itself
+   *  closes it. */
+  isSidebarOpen: boolean;
+  openSidebar: () => void;
+  closeSidebar: () => void;
 };
 
 const QuoteContext = createContext<QuoteContextValue | null>(null);
@@ -64,6 +71,7 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
   // has to match the server's output.
   const [items, setItems] = useState<QuoteLineItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Deliberate exception, not a lint violation to fix: the whole point is
   // a ONE-TIME read of an external store (localStorage) that must happen
@@ -120,6 +128,9 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     setItems([]);
   }, []);
 
+  const openSidebar = useCallback(() => setIsSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+
   const totalItems = items.length;
   const totalQuantity = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
@@ -136,6 +147,9 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
       totalItems,
       totalQuantity,
       isHydrated,
+      isSidebarOpen,
+      openSidebar,
+      closeSidebar,
     }),
     [
       items,
@@ -146,6 +160,9 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
       totalItems,
       totalQuantity,
       isHydrated,
+      isSidebarOpen,
+      openSidebar,
+      closeSidebar,
     ]
   );
 

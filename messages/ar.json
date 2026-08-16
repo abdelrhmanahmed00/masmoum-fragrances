@@ -64,5 +64,17 @@
     "quantity": "الكمية",
     "decreaseQuantity": "إنقاص الكمية",
     "increaseQuantity": "زيادة الكمية"
+  },
+  "Quote": {
+    "title": "عرض السعر الخاص بك",
+    "close": "إغلاق",
+    "empty": "عرض السعر فارغ حاليًا.",
+    "continueShopping": "متابعة التسوق",
+    "remove": "إزالة العنصر",
+    "decreaseQuantity": "إنقاص الكمية",
+    "increaseQuantity": "زيادة الكمية",
+    "totalItems": "إجمالي العناصر: {count}",
+    "totalQuantity": "إجمالي الكمية: {count} قطعة",
+    "requestQuote": "اطلب عرض سعر"
   }
 }

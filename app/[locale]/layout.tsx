@@ -8,6 +8,7 @@ import { siteConfig } from "@/lib/config";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { QuoteProvider } from "@/components/quote/QuoteProvider";
+import QuoteSidebar from "@/components/quote/QuoteSidebar";
 import "../globals.css";
 
 // Reference site (shop-gulforchid.com) uses "Jost" for both headings and
@@ -74,6 +75,12 @@ export default async function LocaleLayout({
             <Header />
             <main className="flex-1">{children}</main>
             <Footer />
+            {/* Mounted once at the root, not per-page — same rationale as
+                QuoteProvider itself (Prompt 14): it's a persistent
+                cross-page overlay, not page content. Its own isSidebarOpen
+                state (from context) keeps it invisible/inert until the
+                Header's Quote pill opens it. */}
+            <QuoteSidebar />
           </QuoteProvider>
         </NextIntlClientProvider>
       </body>

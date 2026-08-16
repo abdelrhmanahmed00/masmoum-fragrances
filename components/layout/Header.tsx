@@ -37,7 +37,7 @@ export default function Header() {
   // the future summary page). Starts at 0 identically on server and first
   // client render (see QuoteProvider's hydration note), then updates once
   // localStorage is read post-mount — no hydration mismatch.
-  const { totalItems } = useQuote();
+  const { totalItems, openSidebar } = useQuote();
 
   return (
     <header className="sticky top-0 z-50 border-b border-brand-border bg-brand-white">
@@ -80,9 +80,12 @@ export default function Header() {
           </ul>
         </nav>
 
-        {/* Quote indicator — opposite side from the logo */}
-        <Link
-          href="/quote"
+        {/* Quote indicator — opposite side from the logo. Opens the
+            sidebar (Prompt 18) rather than navigating; the sidebar itself
+            links to the full /quote summary page ("Request a Quote"). */}
+        <button
+          type="button"
+          onClick={openSidebar}
           className="flex items-center gap-2 rounded-full border border-brand-black px-4 py-1.5 text-sm font-medium text-brand-black transition-colors hover:bg-brand-black hover:text-brand-white lg:flex-1 lg:justify-end"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -95,7 +98,7 @@ export default function Header() {
           <span>
             {t("quote")} ({totalItems})
           </span>
-        </Link>
+        </button>
       </div>
 
       {/* Mobile off-canvas nav — full-screen backdrop + panel sliding in
