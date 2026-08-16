@@ -23,5 +23,9 @@
     "contactWhatsappLabel": "واتساب",
     "requestQuote": "اطلب عرض سعر",
     "copyright": "© {year} مسموم للعطور. جميع الحقوق محفوظة."
+  },
+  "Hero": {
+    "emptyStateTagline": "شريكك الموثوق في عطور الجملة",
+    "slideLabel": "الشريحة {number}"
   }
 }

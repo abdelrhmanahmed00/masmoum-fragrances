@@ -23,5 +23,9 @@
     "contactWhatsappLabel": "WhatsApp",
     "requestQuote": "Request a Quote",
     "copyright": "© {year} Masmoum Fragrances. All rights reserved."
+  },
+  "Hero": {
+    "emptyStateTagline": "Your Trusted Partner in Wholesale Fragrances",
+    "slideLabel": "Slide {number}"
   }
 }
