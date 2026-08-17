@@ -12,7 +12,9 @@ export type ProductCardData = {
 };
 
 export type ProductTabData = {
-  /** "all" for the baseline tab, otherwise the collection's id. */
+  /** "all" for the baseline tab, otherwise the category's id (Prompt 24 —
+   *  previously the collection's id; the homepage tabs are category-driven
+   *  now, see ProductsSection.tsx's own comment for why). */
   id: string;
   /** null for the "all" tab — its label is a fixed UI string the client
    *  component translates itself (Products.allTab), not DB content that
@@ -22,5 +24,10 @@ export type ProductTabData = {
   products: ProductCardData[];
   /** Total matching count (not just this page) — drives "See more" visibility. */
   totalCount: number;
-  seeMoreHref: string;
+  /** null when there's genuinely nowhere to send "See more" (currently
+   *  just the "all" tab — no site-wide /products listing page exists yet,
+   *  Prompt 24's own flagged gap). ProductTabs must not render a "See
+   *  more" link at all when this is null, even if totalCount exceeds the
+   *  shown products — no 404 link. */
+  seeMoreHref: string | null;
 };

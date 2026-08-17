@@ -155,6 +155,28 @@ export async function getActiveCollectionsList(): Promise<CollectionRow[]> {
   return error || !data ? [] : data;
 }
 
+/** All active categories, ordered by sort_order — the homepage's product
+ *  tabs (Prompt 24; previously collection-driven, see ProductsSection.tsx's
+ *  own comment for why that changed). No equivalent existed before this
+ *  prompt: getActiveCategorySlugs above returns slugs only (for
+ *  generateStaticParams), and getCategoryBySlug is a single-row lookup --
+ *  this is the first "full list of active category rows" fetcher, mirroring
+ *  getActiveCollectionsList's exact shape above. Tagged "categories" since
+ *  this reads the categories table directly (see the Prompt 23 report for
+ *  the full tagging scheme). */
+export async function getActiveCategoriesList(): Promise<CategoryRow[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, slug, name_en, name_ar")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  return error || !data ? [] : data;
+}
+
 export async function getCategoryProducts({
   categoryId,
   gender,

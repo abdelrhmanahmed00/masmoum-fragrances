@@ -18,7 +18,14 @@ import type { ProductTabData } from "@/types/product";
 // Also confirmed: active tab styling is `color:#000` (brand-black) with a
 // `border-bottom-color` in the brand gold accent; inactive tabs are
 // brand-gray with a transparent border. "See more" is a plain <a> to a
-// full listing page (/collections/{slug}), not pagination or "load more".
+// full listing page, not pagination or "load more".
+//
+// Tab data source: category-driven as of Prompt 24 (was collection-driven,
+// Prompt 9) -- this component itself is unchanged by that switch, it only
+// ever consumed generic ProductTabData; see ProductsSection.tsx for what
+// changed. seeMoreHref can be null (currently just the "All" tab -- no
+// site-wide listing page exists, a flagged gap, not an oversight) and
+// must suppress the link entirely, not point it at a 404.
 
 export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
   const locale = useLocale();
@@ -92,7 +99,8 @@ export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
             ))}
           </div>
 
-          {activeTab.totalCount > activeTab.products.length ? (
+          {activeTab.totalCount > activeTab.products.length &&
+          activeTab.seeMoreHref ? (
             <div className="mt-8 text-center">
               <Link
                 href={activeTab.seeMoreHref}
