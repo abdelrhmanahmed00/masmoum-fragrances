@@ -90,7 +90,9 @@ export function parseGenderParam(value: unknown): ProductGender | undefined {
 export async function getCategoryBySlug(
   slug: string
 ): Promise<CategoryRow | null> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
   const { data, error } = await supabase
     .from("categories")
     .select("id, slug, name_en, name_ar")
@@ -116,7 +118,9 @@ export async function getCollectionBySlug(
 }
 
 export async function getActiveCategorySlugs(): Promise<{ slug: string }[]> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
   const { data, error } = await supabase
     .from("categories")
     .select("slug")
@@ -160,7 +164,14 @@ export async function getCategoryProducts({
   gender?: ProductGender;
   collectionId?: string | null;
 }): Promise<ProductCardData[]> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "categories" too, not just product-scoped: PRODUCT_CARD_SELECT
+  // embeds category:categories(name_en, name_ar) via a join, so a category
+  // rename needs this invalidated the same as an actual category-table
+  // read would (see the Prompt 23 report for the full list of call sites
+  // that carry this tag and why).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
 
   // product_collections!inner(collection_id) is only added to the select
   // when actually filtering by collection -- same join+filter pattern
@@ -191,7 +202,11 @@ export async function getCollectionProducts({
 }: {
   collectionId: string;
 }): Promise<ProductCardData[]> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "categories" too -- same reasoning as getCategoryProducts above
+  // (PRODUCT_CARD_SELECT embeds category data via a join).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
   const { data, error } = await supabase
     .from("products")
     .select(`${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`)
@@ -253,7 +268,11 @@ type RawProductDetail = {
 export async function getProductBySlug(
   slug: string
 ): Promise<ProductDetail | null> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.product);
+  // Tagged "categories" too -- PRODUCT_DETAIL_SELECT embeds category data
+  // via a join (same reasoning as the card-select call sites above).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.product, [
+    "categories",
+  ]);
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_DETAIL_SELECT)

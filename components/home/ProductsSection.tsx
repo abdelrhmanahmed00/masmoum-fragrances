@@ -17,7 +17,12 @@ import type { ProductTabData } from "@/types/product";
 const PAGE_SIZE = 8;
 
 async function getAllProductsTab(): Promise<ProductTabData> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "categories" too -- PRODUCT_CARD_SELECT embeds category data
+  // via a join, so a category rename needs the homepage tabs invalidated
+  // the same as an actual category-table read (see the Prompt 23 report).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
   const { data, error, count } = await supabase
     .from("products")
     .select(PRODUCT_CARD_SELECT, { count: "exact" })
@@ -48,7 +53,10 @@ async function getCollectionTab(collection: {
   name_en: string;
   name_ar: string;
 }): Promise<ProductTabData> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "categories" too -- same reasoning as getAllProductsTab above.
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
   // Queried FROM products (not from product_collections) so `order` and
   // `range` apply directly to products.sort_order -- ordering a *referenced*
   // table only reorders a nested array within one parent row, which isn't

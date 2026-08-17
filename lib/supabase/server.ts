@@ -42,8 +42,17 @@ export function createServiceRoleClient() {
  * requests within that window are served from cache instead of hitting
  * Supabase again. Pass the relevant REVALIDATE_SECONDS value explicitly at
  * the call site rather than relying on a hidden default.
+ *
+ * `tags` (added Prompt 23): optional `next.tags` on the underlying fetch,
+ * for on-demand invalidation via `revalidateTag()` from an admin mutation
+ * — e.g. every category-touching read is tagged "categories" so a
+ * category edit can invalidate every page that embeds category data
+ * (category pages, collection pages, homepage product tabs, product
+ * detail pages -- see lib/catalog.ts and the Prompt 23 report for exactly
+ * which call sites carry which tags and why) in one call, without the
+ * admin action needing to know every affected path/slug up front.
  */
-export function createPublicClient(revalidateSeconds: number) {
+export function createPublicClient(revalidateSeconds: number, tags?: string[]) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -60,7 +69,10 @@ export function createPublicClient(revalidateSeconds: number) {
     },
     global: {
       fetch: (input, init) =>
-        fetch(input, { ...init, next: { revalidate: revalidateSeconds } }),
+        fetch(input, {
+          ...init,
+          next: { revalidate: revalidateSeconds, tags },
+        }),
     },
   });
 }
