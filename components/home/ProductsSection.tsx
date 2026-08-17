@@ -62,16 +62,10 @@ async function getAllProductsTab(): Promise<ProductTabData> {
     label_ar: null,
     products,
     totalCount: count ?? products.length,
-    // FLAGGED GAP (Prompt 24, explicit per its own task item 3): there is
-    // no site-wide "/products" listing page, and building one isn't part
-    // of this fix. Rather than link "See more" at a route that 404s (the
-    // previous, pre-existing "/products" placeholder), this is null --
-    // ProductTabs will render NO "See more" link for "All" even once
-    // there are more than PAGE_SIZE active products. Needs a real
-    // decision later: either build a genuine all-products listing page,
-    // or decide "All" should stay capped at PAGE_SIZE with no way to see
-    // the rest.
-    seeMoreHref: null,
+    // Real listing page as of Prompt 25 (app/[locale]/(marketing)/products/
+    // page.tsx) -- previously null, a flagged gap from Prompt 24 since no
+    // such page existed yet and pointing here would have 404'd.
+    seeMoreHref: "/products",
   };
 }
 

@@ -30,6 +30,7 @@
   },
   "Products": {
     "heading": "منتجاتنا",
+    "allProductsHeading": "جميع المنتجات",
     "allTab": "الكل",
     "emptyState": "الكتالوج قريبًا — تابعونا.",
     "noFilterResults": "لا توجد منتجات مطابقة لهذه الفلاتر حاليًا.",

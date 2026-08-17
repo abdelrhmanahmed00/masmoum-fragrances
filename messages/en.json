@@ -30,6 +30,7 @@
   },
   "Products": {
     "heading": "Our Products",
+    "allProductsHeading": "All Products",
     "allTab": "All",
     "emptyState": "Catalog coming soon — check back shortly.",
     "noFilterResults": "No products match these filters yet.",

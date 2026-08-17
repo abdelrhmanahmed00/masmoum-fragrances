@@ -24,10 +24,11 @@ export type ProductTabData = {
   products: ProductCardData[];
   /** Total matching count (not just this page) — drives "See more" visibility. */
   totalCount: number;
-  /** null when there's genuinely nowhere to send "See more" (currently
-   *  just the "all" tab — no site-wide /products listing page exists yet,
-   *  Prompt 24's own flagged gap). ProductTabs must not render a "See
-   *  more" link at all when this is null, even if totalCount exceeds the
-   *  shown products — no 404 link. */
+  /** Nullable defensively rather than because any tab currently needs it:
+   *  as of Prompt 25 every tab (including "all", now /products) has a
+   *  real destination. Kept nullable so a future tab type with genuinely
+   *  nowhere to send "See more" degrades safely — ProductTabs must not
+   *  render the link at all when this is null, even if totalCount exceeds
+   *  the shown products, rather than ever pointing at a 404. */
   seeMoreHref: string | null;
 };

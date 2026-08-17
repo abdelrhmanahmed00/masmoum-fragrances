@@ -241,6 +241,32 @@ export async function getCollectionProducts({
     : data.map((p) => toCardData(p as unknown as RawProductCard));
 }
 
+/** Every active product, no category/collection filter -- the site-wide
+ *  /products listing page (Prompt 25), which is what the homepage's
+ *  "All" tab (Prompt 24) links to. Unbounded (no range/count), same as
+ *  getCollectionProducts above and for the same reason: this backs a
+ *  full listing page that shows everything, not a capped preview -- the
+ *  homepage's own capped "All" tab has its own separate, bounded query
+ *  in ProductsSection.tsx (getAllProductsTab) and was deliberately never
+ *  built on this function either. */
+export async function getAllActiveProducts(): Promise<ProductCardData[]> {
+  // Tagged "categories" too -- same reasoning as getCategoryProducts/
+  // getCollectionProducts above (PRODUCT_CARD_SELECT embeds category
+  // data via a join).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_CARD_SELECT)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  return error || !data
+    ? []
+    : data.map((p) => toCardData(p as unknown as RawProductCard));
+}
+
 export async function getActiveProductSlugs(): Promise<{ slug: string }[]> {
   const supabase = createPublicClient(REVALIDATE_SECONDS.product);
   const { data, error } = await supabase
