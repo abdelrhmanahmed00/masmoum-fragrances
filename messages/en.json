@@ -32,6 +32,7 @@
     "heading": "Our Products",
     "allProductsHeading": "All Products",
     "soldOut": "Sold Out",
+    "unavailable": "Unavailable",
     "allTab": "All",
     "emptyState": "Catalog coming soon — check back shortly.",
     "noFilterResults": "No products match these filters yet.",
@@ -57,6 +58,7 @@
   },
   "ProductDetail": {
     "soldOut": "Sold Out",
+    "unavailable": "Unavailable",
     "description": "Description",
     "notes": "Fragrance Notes",
     "topNotes": "Top Notes",

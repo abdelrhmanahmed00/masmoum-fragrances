@@ -27,12 +27,22 @@ type ProductCardProps = {
    *  competitors browsing the public catalog isn't desirable, and
    *  nothing in the spec asked for it). */
   stockQuantity: number | null;
+  /** Prompt 29: the MOQ-vs-stock edge case. If a product requires a
+   *  minimum order of e.g. 10 but only 3 are in stock, no quantity
+   *  satisfies both constraints -- treated as unavailable the same as
+   *  sold out (not shown as a broken/uncappable "Add to Quote" for 1
+   *  unit that doesn't actually meet the seller's own MOQ policy). */
+  moq: number;
   /** Pre-localized, passed down the same way `name`/`categoryLabel`
    *  already are -- this component has no "use client"/useTranslations
    *  of its own (see the comment below) and is shared between server
    *  pages (getTranslations) and a client component (ProductTabs.tsx,
    *  useTranslations), so translation happens upstream, not here. */
   soldOutLabel: string;
+  /** Shown instead of soldOutLabel for the MOQ-vs-stock case above --
+   *  distinct wording on purpose (see ProductCard's own comment): "Sold
+   *  Out" would be misleading when stock genuinely isn't zero. */
+  unavailableLabel: string;
 };
 
 // No "use client" here: it has no hooks of its own. It's fine that it's
@@ -51,18 +61,29 @@ export default function ProductCard({
   imageUrl,
   defaultSize,
   stockQuantity,
+  moq,
   soldOutLabel,
+  unavailableLabel,
 }: ProductCardProps) {
   const isSoldOut = stockQuantity === 0;
+  const isMoqUnavailable =
+    stockQuantity !== null && stockQuantity > 0 && moq > stockQuantity;
+  const isUnavailable = isSoldOut || isMoqUnavailable;
+  const badgeLabel = isSoldOut
+    ? soldOutLabel
+    : isMoqUnavailable
+      ? unavailableLabel
+      : null;
+
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card bg-brand-white shadow-card">
       <Link
         href={`/products/${slug}`}
         className="relative block aspect-square bg-brand-surface"
       >
-        {isSoldOut ? (
+        {badgeLabel ? (
           <span className="absolute start-2 top-2 z-10 rounded-full bg-brand-black px-2 py-0.5 text-xs font-medium text-brand-white">
-            {soldOutLabel}
+            {badgeLabel}
           </span>
         ) : null}
         {imageUrl ? (
@@ -117,9 +138,10 @@ export default function ProductCard({
             categoryNameEn={categoryName?.en ?? null}
             categoryNameAr={categoryName?.ar ?? null}
             imageUrl={imageUrl}
+            stockQuantity={stockQuantity}
             sizeId={defaultSize?.id ?? null}
             sizeLabel={defaultSize?.label ?? null}
-            disabled={isSoldOut}
+            disabled={isUnavailable}
           />
         </div>
       </div>

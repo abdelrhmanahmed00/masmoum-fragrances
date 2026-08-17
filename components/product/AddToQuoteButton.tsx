@@ -14,6 +14,11 @@ type AddToQuoteButtonProps = {
   categoryNameEn: string | null;
   categoryNameAr: string | null;
   imageUrl: string | null;
+  /** Captured into the quote line item's own snapshot (Prompt 29 -- fixes
+   *  the "added 4 when only 3 in stock" bug) so QuoteProvider can enforce
+   *  the same cap from the sidebar/summary page's own stepper, not just
+   *  at the moment of adding. null = unlimited. */
+  stockQuantity: number | null;
   /** Card usage (Prompt 9) passes the product's default size since there's
    *  no size-selection UI there; the detail page (Prompt 12) passes
    *  whatever's currently selected in ProductPurchasePanel. Both are
@@ -50,6 +55,7 @@ export default function AddToQuoteButton({
   categoryNameEn,
   categoryNameAr,
   imageUrl,
+  stockQuantity,
   sizeId = null,
   sizeLabel = null,
   quantity = 1,
@@ -84,6 +90,7 @@ export default function AddToQuoteButton({
       categoryNameEn,
       categoryNameAr,
       imageUrl,
+      stockQuantity,
       quantity,
     });
     setJustAdded(true);

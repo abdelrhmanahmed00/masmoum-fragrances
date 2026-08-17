@@ -32,6 +32,7 @@
     "heading": "منتجاتنا",
     "allProductsHeading": "جميع المنتجات",
     "soldOut": "نفدت الكمية",
+    "unavailable": "غير متوفر",
     "allTab": "الكل",
     "emptyState": "الكتالوج قريبًا — تابعونا.",
     "noFilterResults": "لا توجد منتجات مطابقة لهذه الفلاتر حاليًا.",
@@ -57,6 +58,7 @@
   },
   "ProductDetail": {
     "soldOut": "نفدت الكمية",
+    "unavailable": "غير متوفر",
     "description": "الوصف",
     "notes": "النوتات",
     "topNotes": "النوتات العلوية",

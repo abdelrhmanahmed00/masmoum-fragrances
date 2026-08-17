@@ -66,7 +66,9 @@ export default async function CollectionPage({
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
               stockQuantity={product.stockQuantity}
+              moq={product.moq}
               soldOutLabel={t("soldOut")}
+              unavailableLabel={t("unavailable")}
             />
           ))}
         </div>

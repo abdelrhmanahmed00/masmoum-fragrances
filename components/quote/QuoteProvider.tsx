@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { AddQuoteItemInput, QuoteLineItem } from "@/types/quote";
+import { clampQuantity, mergeQuantity } from "@/lib/quote-quantity";
 
 const STORAGE_KEY = "masmoum-quote-v1";
 
@@ -94,6 +95,15 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items, isHydrated]);
 
+  // Prompt 29 (fixing the "added 4 when only 3 in stock" bug): this is the
+  // REAL enforcement point for the stock cap, not just a UI nicety on the
+  // stepper components -- clamping here means it's impossible to end up
+  // with quantity > stockQuantity in stored state regardless of which UI
+  // triggered the change (product page stepper, re-clicking "Add to
+  // Quote" for a line already in the quote, or the sidebar/summary
+  // page's own +/- stepper -- see QuoteQuantityStepper's own comment for
+  // why that one ALSO disables its "+" button on top of this, as a UX
+  // signal, not because this clamp alone is insufficient).
   const addItem = useCallback((input: AddQuoteItemInput) => {
     setItems((current) => {
       const id = makeLineId(input.productId, input.productSizeId);
@@ -101,21 +111,40 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
 
       if (existingIndex !== -1) {
         const next = [...current];
+        const existing = next[existingIndex];
         next[existingIndex] = {
-          ...next[existingIndex],
-          quantity: next[existingIndex].quantity + input.quantity,
+          ...existing,
+          // Refresh the cap itself (not the other display fields) to the
+          // latest known value every time the buyer adds this product+size
+          // again -- keeps the enforcement point reasonably current
+          // without reintroducing a live re-fetch of the whole snapshot.
+          stockQuantity: input.stockQuantity,
+          quantity: mergeQuantity(
+            existing.quantity,
+            input.quantity,
+            input.stockQuantity
+          ),
         };
         return next;
       }
 
-      return [...current, { ...input, id }];
+      return [
+        ...current,
+        {
+          ...input,
+          id,
+          quantity: clampQuantity(input.quantity, input.stockQuantity),
+        },
+      ];
     });
   }, []);
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
     setItems((current) =>
       current.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item
+        item.id === id
+          ? { ...item, quantity: clampQuantity(quantity, item.stockQuantity) }
+          : item
       )
     );
   }, []);

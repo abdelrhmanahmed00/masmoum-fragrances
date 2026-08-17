@@ -92,6 +92,7 @@ export default async function ProductPage({
             imageUrl={images[0]?.url ?? null}
             sizes={product.sizes}
             stockQuantity={product.stockQuantity}
+            moq={product.moq}
           />
 
           <div className="mt-8">

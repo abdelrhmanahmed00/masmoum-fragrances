@@ -158,6 +158,7 @@ export default function QuoteSidebar() {
                           itemId={item.id}
                           quantity={item.quantity}
                           size="sm"
+                          maxQuantity={item.stockQuantity ?? null}
                         />
                       </div>
                     </div>

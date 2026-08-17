@@ -27,14 +27,23 @@ export default function QuoteQuantityStepper({
   itemId,
   quantity,
   size = "sm",
+  maxQuantity = null,
 }: {
   itemId: string;
   quantity: number;
   size?: "sm" | "md";
+  /** Prompt 29 -- the item's own stockQuantity snapshot (null =
+   *  unlimited). QuoteProvider.updateQuantity already clamps to this on
+   *  every change (the real enforcement point, see its own comment) --
+   *  disabling "+" here on top of that is a UX signal so clicking it at
+   *  the cap doesn't look broken/unresponsive, not the only thing
+   *  preventing the overflow. */
+  maxQuantity?: number | null;
 }) {
   const t = useTranslations("Quote");
   const { updateQuantity } = useQuote();
   const { box, cell } = SIZE_CLASSES[size];
+  const atMax = maxQuantity != null && quantity >= maxQuantity;
 
   return (
     <div
@@ -57,7 +66,8 @@ export default function QuoteQuantityStepper({
         type="button"
         onClick={() => updateQuantity(itemId, quantity + 1)}
         aria-label={t("increaseQuantity")}
-        className={`flex ${cell} items-center justify-center text-brand-black`}
+        disabled={atMax}
+        className={`flex ${cell} items-center justify-center text-brand-black disabled:cursor-not-allowed disabled:opacity-40`}
       >
         +
       </button>

@@ -37,6 +37,17 @@ export type QuoteLineItem = {
   categoryNameAr: string | null;
   imageUrl: string | null;
   quantity: number;
+  /** Added in Prompt 29 (fixing the "add more than in stock" bug) --
+   *  captured at add-time, same "snapshot, not live" reasoning as every
+   *  other field here: no live re-fetch, refreshed only when the buyer
+   *  actively adds this same product+size again (see QuoteProvider's
+   *  addItem). null = unlimited, same meaning as ProductCardData/
+   *  ProductDetail's stockQuantity. Absent (not just null -- the key
+   *  won't exist at all) on any line item added before this prompt
+   *  shipped -- treat a missing key the same as null wherever this is
+   *  read, same rule already established for categoryNameEn/Ar
+   *  (Prompt 19). */
+  stockQuantity: number | null;
 };
 
 export type AddQuoteItemInput = Omit<QuoteLineItem, "id">;

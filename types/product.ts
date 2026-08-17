@@ -14,6 +14,11 @@ export type ProductCardData = {
    *  the raw number publicly -- see ProductCard's own comment for why
    *  only a binary available/sold-out signal is shown. */
   stockQuantity: number | null;
+  /** Added in Prompt 29 -- needed alongside stockQuantity to detect the
+   *  "MOQ exceeds available stock" edge case (e.g. MOQ 10, stock 3: no
+   *  quantity satisfies both constraints, so the card treats it as
+   *  unavailable the same as sold out). See ProductCard's own comment. */
+  moq: number;
 };
 
 export type ProductTabData = {

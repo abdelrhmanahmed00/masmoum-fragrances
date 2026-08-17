@@ -11,7 +11,7 @@ import type { ProductDetail } from "@/types/product-detail";
 // risk of keeping two copies outweighs the churn of merging them).
 
 export const PRODUCT_CARD_SELECT =
-  "id, slug, name_en, name_ar, stock_quantity, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
+  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
 type RawImage = { storage_path: string; is_primary: boolean };
@@ -27,6 +27,7 @@ export type RawProductCard = {
   name_en: string;
   name_ar: string;
   stock_quantity: number | null;
+  moq: number;
   category: RawCategory;
   images: RawImage[];
   sizes: RawSize[];
@@ -57,6 +58,7 @@ export function toCardData(product: RawProductCard): ProductCardData {
       ? { id: defaultSize.id, label: defaultSize.size_label }
       : null,
     stockQuantity: product.stock_quantity,
+    moq: product.moq,
   };
 }
 

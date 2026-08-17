@@ -133,6 +133,7 @@ export default function QuoteSummary() {
                         itemId={item.id}
                         quantity={item.quantity}
                         size="md"
+                        maxQuantity={item.stockQuantity ?? null}
                       />
                     </td>
                     <td className="py-4 pt-5">
@@ -202,6 +203,7 @@ export default function QuoteSummary() {
                         itemId={item.id}
                         quantity={item.quantity}
                         size="sm"
+                        maxQuantity={item.stockQuantity ?? null}
                       />
                     </div>
                   </div>
