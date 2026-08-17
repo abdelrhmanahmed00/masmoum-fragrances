@@ -26,6 +26,11 @@ type AddToQuoteButtonProps = {
   /** Card and detail-page contexts need different layout (block vs. flex-1
    *  next to a quantity stepper) — override when the default doesn't fit. */
   className?: string;
+  /** Sold out (stockQuantity === 0, Prompt 28) -- can't meaningfully
+   *  request a quote for zero stock, see the Prompt 28 report for the
+   *  explicit reasoning. Defaults to false so every existing call site
+   *  (products with null/positive stock) is unaffected. */
+  disabled?: boolean;
 };
 
 const DEFAULT_CLASS_NAME =
@@ -49,6 +54,7 @@ export default function AddToQuoteButton({
   sizeLabel = null,
   quantity = 1,
   className,
+  disabled = false,
 }: AddToQuoteButtonProps) {
   const t = useTranslations("Products");
   const { addItem } = useQuote();
@@ -63,6 +69,11 @@ export default function AddToQuoteButton({
   }, [justAdded]);
 
   const handleClick = () => {
+    // Native `disabled` on the button already prevents this click from
+    // firing at all -- this guard is defense-in-depth, not the primary
+    // mechanism (same belt-and-suspenders standard as the rest of this
+    // project's forms).
+    if (disabled) return;
     addItem({
       productId,
       productSlug,
@@ -82,7 +93,11 @@ export default function AddToQuoteButton({
     <button
       type="button"
       onClick={handleClick}
-      className={className ?? DEFAULT_CLASS_NAME}
+      disabled={disabled}
+      className={
+        (className ?? DEFAULT_CLASS_NAME) +
+        (disabled ? " cursor-not-allowed opacity-50" : "")
+      }
     >
       {justAdded ? t("addedToQuote") : t("addToQuote")}
     </button>

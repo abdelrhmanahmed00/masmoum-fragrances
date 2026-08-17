@@ -95,6 +95,8 @@ export default function ProductTabs({ tabs }: { tabs: ProductTabData[] }) {
                 categoryName={product.categoryName}
                 imageUrl={product.imageUrl}
                 defaultSize={product.defaultSize}
+                stockQuantity={product.stockQuantity}
+                soldOutLabel={t("soldOut")}
               />
             ))}
           </div>

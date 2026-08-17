@@ -275,6 +275,20 @@ export default function ProductForm({
           />
         </div>
 
+        {/* Empty by default (uncontrolled, defaultValue only) -- an empty
+            field IS the meaningful "unlimited" value (Prompt 28), not a
+            placeholder waiting to be filled in like moq/sort_order above. */}
+        <FormField
+          label="Stock Quantity"
+          name="stock_quantity"
+          type="number"
+          min={0}
+          step={1}
+          defaultValue={product?.stock_quantity ?? ""}
+          error={fieldErrors?.stock_quantity}
+          hint="Leave empty for unlimited. The public site only ever shows Available / Sold Out, never the exact number."
+        />
+
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2 text-sm text-brand-black">
             <input

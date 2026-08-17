@@ -29,7 +29,7 @@ async function getAllProducts(): Promise<AdminProductListRow[]> {
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, slug, name_en, name_ar, gender, is_active, is_featured, sort_order, category:categories(name_en)"
+      "id, slug, name_en, name_ar, gender, is_active, is_featured, sort_order, stock_quantity, category:categories(name_en)"
     )
     .order("sort_order", { ascending: true });
 
@@ -62,6 +62,7 @@ export default async function AdminProductsPage() {
                 <th className="px-4 py-3 text-start font-medium">Name</th>
                 <th className="px-4 py-3 text-start font-medium">Category</th>
                 <th className="px-4 py-3 text-start font-medium">Gender</th>
+                <th className="px-4 py-3 text-start font-medium">Stock</th>
                 <th className="px-4 py-3 text-start font-medium">Sort</th>
                 <th className="px-4 py-3 text-start font-medium">Status</th>
                 <th className="px-4 py-3 text-start font-medium">Featured</th>
@@ -87,6 +88,13 @@ export default async function AdminProductsPage() {
                   </td>
                   <td className="px-4 py-3 text-brand-gray">
                     {GENDER_LABEL[product.gender] ?? product.gender}
+                  </td>
+                  <td className="px-4 py-3 text-brand-gray">
+                    {product.stock_quantity === null
+                      ? "Unlimited"
+                      : product.stock_quantity === 0
+                        ? "Sold Out"
+                        : product.stock_quantity}
                   </td>
                   <td className="px-4 py-3 text-brand-gray">
                     {product.sort_order}

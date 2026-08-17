@@ -11,7 +11,7 @@ import type { ProductDetail } from "@/types/product-detail";
 // risk of keeping two copies outweighs the churn of merging them).
 
 export const PRODUCT_CARD_SELECT =
-  "id, slug, name_en, name_ar, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
+  "id, slug, name_en, name_ar, stock_quantity, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
 type RawImage = { storage_path: string; is_primary: boolean };
@@ -26,6 +26,7 @@ export type RawProductCard = {
   slug: string;
   name_en: string;
   name_ar: string;
+  stock_quantity: number | null;
   category: RawCategory;
   images: RawImage[];
   sizes: RawSize[];
@@ -55,6 +56,7 @@ export function toCardData(product: RawProductCard): ProductCardData {
     defaultSize: defaultSize
       ? { id: defaultSize.id, label: defaultSize.size_label }
       : null,
+    stockQuantity: product.stock_quantity,
   };
 }
 
@@ -296,7 +298,7 @@ const PRODUCT_DETAIL_SELECT = `
   fragrance_top_notes_en, fragrance_top_notes_ar,
   fragrance_middle_notes_en, fragrance_middle_notes_ar,
   fragrance_base_notes_en, fragrance_base_notes_ar,
-  moq,
+  moq, stock_quantity,
   category:categories(name_en, name_ar),
   images:product_images(storage_path, is_primary, sort_order),
   sizes:product_sizes(id, size_label, sort_order, is_active)
@@ -317,6 +319,7 @@ type RawProductDetail = {
   fragrance_base_notes_en: string | null;
   fragrance_base_notes_ar: string | null;
   moq: number;
+  stock_quantity: number | null;
   category: RawCategory;
   images: { storage_path: string; is_primary: boolean; sort_order: number }[];
   sizes: {
@@ -363,6 +366,7 @@ export async function getProductBySlug(
     fragrance_base_notes_en: raw.fragrance_base_notes_en,
     fragrance_base_notes_ar: raw.fragrance_base_notes_ar,
     moq: raw.moq,
+    stockQuantity: raw.stock_quantity,
     categoryName: raw.category
       ? { en: raw.category.name_en, ar: raw.category.name_ar }
       : null,

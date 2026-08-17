@@ -1,8 +1,8 @@
 -- ===========================================================================
 -- Masmoum Fragrances — combined schema migration
--- Generated convenience concatenation of supabase/migrations/0001..0014 for
+-- Generated convenience concatenation of supabase/migrations/0001..0015 for
 -- pasting into the Supabase SQL Editor in a single run (fresh database only —
--- if 0001-0013 already ran, only paste 0014 to add the admin RLS policies).
+-- if 0001-0014 already ran, only paste 0015 to add products.stock_quantity).
 -- Canonical source of truth: the individual files in supabase/migrations/.
 -- ===========================================================================
 
@@ -792,3 +792,24 @@ create policy "quote_request_items_admin_select"
 -- policy) or through a service-role Server Action (needing none) is a
 -- decision for the prompt that actually builds those upload forms, not
 -- this one -- out of scope for "authentication only."
+
+-- ---------------------------------------------------------------------------
+-- migrations/0015_product_stock_quantity.sql
+-- ---------------------------------------------------------------------------
+-- Stock quantity (Prompt 28) -- a new client requirement, not part of the
+-- original 0004 products schema. Nullable, no default: null means
+-- "unlimited / always available" (the default/expected state for most
+-- products, per the client's own framing), a set number means the public
+-- site should show availability and "Sold Out" once it reaches 0.
+--
+-- Purely admin-controlled -- nothing in this schema or application code
+-- auto-decrements this from quote_request_items. A submitted quote is an
+-- inquiry, not a confirmed sale; there is no automatic stock deduction
+-- anywhere in this system, by design.
+
+alter table public.products
+  add column stock_quantity integer;
+
+alter table public.products
+  add constraint products_stock_quantity_non_negative
+    check (stock_quantity is null or stock_quantity >= 0);

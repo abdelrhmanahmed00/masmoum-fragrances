@@ -20,6 +20,19 @@ type ProductCardProps = {
   categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
   defaultSize: { id: string; label: string } | null;
+  /** null = unlimited/always available; 0 = sold out (Prompt 28). Any
+   *  other positive number behaves identically to null on this card --
+   *  publicly we only ever show a binary available/sold-out signal, not
+   *  the exact count (a B2B wholesale site showing exact stock to
+   *  competitors browsing the public catalog isn't desirable, and
+   *  nothing in the spec asked for it). */
+  stockQuantity: number | null;
+  /** Pre-localized, passed down the same way `name`/`categoryLabel`
+   *  already are -- this component has no "use client"/useTranslations
+   *  of its own (see the comment below) and is shared between server
+   *  pages (getTranslations) and a client component (ProductTabs.tsx,
+   *  useTranslations), so translation happens upstream, not here. */
+  soldOutLabel: string;
 };
 
 // No "use client" here: it has no hooks of its own. It's fine that it's
@@ -37,13 +50,21 @@ export default function ProductCard({
   categoryName,
   imageUrl,
   defaultSize,
+  stockQuantity,
+  soldOutLabel,
 }: ProductCardProps) {
+  const isSoldOut = stockQuantity === 0;
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card bg-brand-white shadow-card">
       <Link
         href={`/products/${slug}`}
         className="relative block aspect-square bg-brand-surface"
       >
+        {isSoldOut ? (
+          <span className="absolute start-2 top-2 z-10 rounded-full bg-brand-black px-2 py-0.5 text-xs font-medium text-brand-white">
+            {soldOutLabel}
+          </span>
+        ) : null}
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -98,6 +119,7 @@ export default function ProductCard({
             imageUrl={imageUrl}
             sizeId={defaultSize?.id ?? null}
             sizeLabel={defaultSize?.label ?? null}
+            disabled={isSoldOut}
           />
         </div>
       </div>

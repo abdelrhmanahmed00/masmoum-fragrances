@@ -91,6 +91,7 @@ export default async function ProductPage({
             categoryName={product.categoryName}
             imageUrl={images[0]?.url ?? null}
             sizes={product.sizes}
+            stockQuantity={product.stockQuantity}
           />
 
           <div className="mt-8">

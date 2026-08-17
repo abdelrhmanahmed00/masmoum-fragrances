@@ -49,6 +49,10 @@ type ProductInput = {
   fragrance_base_notes_en: string | null;
   fragrance_base_notes_ar: string | null;
   moq: number;
+  /** null = unlimited/always available (Prompt 28) -- the DEFAULT/expected
+   *  state for most products, per the client's own framing, not an edge
+   *  case to special-case away. */
+  stock_quantity: number | null;
   is_active: boolean;
   is_featured: boolean;
   sort_order: number;
@@ -129,6 +133,22 @@ function validate(formData: FormData): {
     }
   }
 
+  // stock_quantity (Prompt 28): genuinely optional, unlike moq -- an
+  // empty field is a real, meaningful, expected value (null = unlimited),
+  // not "not yet filled in". Only validated when the admin actually
+  // typed something.
+  let stock_quantity: number | null = null;
+  const stockQuantityRaw = formData.get("stock_quantity");
+  if (typeof stockQuantityRaw === "string" && stockQuantityRaw.trim() !== "") {
+    const parsed = Number(stockQuantityRaw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      fieldErrors.stock_quantity =
+        "Stock quantity must be a non-negative whole number, or left empty for unlimited.";
+    } else {
+      stock_quantity = parsed;
+    }
+  }
+
   if (
     !name_en ||
     !name_ar ||
@@ -158,6 +178,7 @@ function validate(formData: FormData): {
       fragrance_base_notes_en,
       fragrance_base_notes_ar,
       moq,
+      stock_quantity,
       is_active,
       is_featured,
       sort_order,

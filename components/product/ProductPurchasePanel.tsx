@@ -22,6 +22,7 @@ export default function ProductPurchasePanel({
   categoryName,
   imageUrl,
   sizes,
+  stockQuantity,
 }: {
   productId: string;
   productSlug: string;
@@ -33,6 +34,9 @@ export default function ProductPurchasePanel({
   categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
   sizes: Size[];
+  /** null = unlimited/always available; 0 = sold out (Prompt 28) -- same
+   *  binary signal as ProductCard, not the exact count. */
+  stockQuantity: number | null;
 }) {
   const t = useTranslations("ProductDetail");
   const [selectedSizeId, setSelectedSizeId] = useState<string | undefined>(
@@ -41,9 +45,18 @@ export default function ProductPurchasePanel({
   const [quantity, setQuantity] = useState(1);
 
   const selectedSize = sizes.find((s) => s.id === selectedSizeId) ?? null;
+  const isSoldOut = stockQuantity === 0;
 
   return (
     <div className="mt-6 space-y-6">
+      {isSoldOut ? (
+        <p
+          role="status"
+          className="inline-block rounded-full bg-brand-black px-3 py-1 text-sm font-medium text-brand-white"
+        >
+          {t("soldOut")}
+        </p>
+      ) : null}
       {sizes.length > 0 ? (
         <div>
           <p className="mb-2 text-sm font-medium text-brand-black">
@@ -79,7 +92,8 @@ export default function ProductPurchasePanel({
             type="button"
             onClick={() => setQuantity((q) => Math.max(1, q - 1))}
             aria-label={t("decreaseQuantity")}
-            className="flex w-11 items-center justify-center text-brand-black"
+            disabled={isSoldOut}
+            className="flex w-11 items-center justify-center text-brand-black disabled:cursor-not-allowed disabled:opacity-50"
           >
             −
           </button>
@@ -91,13 +105,15 @@ export default function ProductPurchasePanel({
               setQuantity(Math.max(1, Number(e.target.value) || 1))
             }
             aria-label={t("quantity")}
-            className="w-12 shrink grow-0 border-x border-brand-border text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            disabled={isSoldOut}
+            className="w-12 shrink grow-0 border-x border-brand-border text-center [appearance:textfield] disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
           <button
             type="button"
             onClick={() => setQuantity((q) => q + 1)}
             aria-label={t("increaseQuantity")}
-            className="flex w-11 items-center justify-center text-brand-black"
+            disabled={isSoldOut}
+            className="flex w-11 items-center justify-center text-brand-black disabled:cursor-not-allowed disabled:opacity-50"
           >
             +
           </button>
@@ -111,6 +127,7 @@ export default function ProductPurchasePanel({
           categoryNameEn={categoryName?.en ?? null}
           categoryNameAr={categoryName?.ar ?? null}
           imageUrl={imageUrl}
+          disabled={isSoldOut}
           sizeId={selectedSize?.id ?? null}
           sizeLabel={selectedSize?.sizeLabel ?? null}
           quantity={quantity}

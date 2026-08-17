@@ -137,6 +137,8 @@ export default async function CategoryPage({
               categoryName={product.categoryName}
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
+              stockQuantity={product.stockQuantity}
+              soldOutLabel={t("soldOut")}
             />
           ))}
         </div>

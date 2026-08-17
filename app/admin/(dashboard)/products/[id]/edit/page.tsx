@@ -14,8 +14,8 @@ const PRODUCT_COLUMNS =
   "id, slug, category_id, name_en, name_ar, description_en, description_ar, " +
   "gender, fragrance_top_notes_en, fragrance_top_notes_ar, " +
   "fragrance_middle_notes_en, fragrance_middle_notes_ar, " +
-  "fragrance_base_notes_en, fragrance_base_notes_ar, moq, is_active, " +
-  "is_featured, sort_order, created_at";
+  "fragrance_base_notes_en, fragrance_base_notes_ar, moq, stock_quantity, " +
+  "is_active, is_featured, sort_order, created_at";
 
 export default async function AdminEditProductPage({
   params,

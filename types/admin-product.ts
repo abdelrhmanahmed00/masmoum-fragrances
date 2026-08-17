@@ -12,6 +12,10 @@ export type AdminProductListRow = {
   is_featured: boolean;
   sort_order: number;
   category: { name_en: string } | null;
+  /** null = unlimited; a number = real stock (Prompt 28). Unlike the
+   *  public site, the admin list DOES show the exact number -- this is
+   *  the operator's own inventory view, not a competitor-facing page. */
+  stock_quantity: number | null;
 };
 
 /** Full row shape for the edit form -- every core-field column (Part 1:
@@ -32,6 +36,7 @@ export type AdminProductRow = {
   fragrance_base_notes_en: string | null;
   fragrance_base_notes_ar: string | null;
   moq: number;
+  stock_quantity: number | null;
   is_active: boolean;
   is_featured: boolean;
   sort_order: number;
@@ -59,6 +64,7 @@ export type ProductFieldErrors = Partial<
     | "description_en"
     | "description_ar"
     | "moq"
+    | "stock_quantity"
     | "sort_order",
     string
   >

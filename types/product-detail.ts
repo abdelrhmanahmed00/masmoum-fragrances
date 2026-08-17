@@ -25,6 +25,10 @@ export type ProductDetail = {
   fragrance_base_notes_en: string | null;
   fragrance_base_notes_ar: string | null;
   moq: number;
+  /** null = unlimited/always available; a number = real stock, 0 = sold
+   *  out (Prompt 28). Same "binary signal only, never the raw number
+   *  publicly" reasoning as ProductCardData.stockQuantity. */
+  stockQuantity: number | null;
   categoryName: { en: string; ar: string } | null;
   images: ProductDetailImage[];
   sizes: ProductDetailSize[];
