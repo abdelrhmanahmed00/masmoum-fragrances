@@ -106,7 +106,13 @@ export async function getCategoryBySlug(
 export async function getCollectionBySlug(
   slug: string
 ): Promise<CollectionRow | null> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "collections" (Prompt 26) so an admin edit invalidates this
+  // page's own collection-name lookup on demand -- see the Prompt 26
+  // report for the full tagging scheme (mirrors Prompt 23's for
+  // categories).
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "collections",
+  ]);
   const { data, error } = await supabase
     .from("collections")
     .select("id, slug, name_en, name_ar")
@@ -145,7 +151,12 @@ export async function getActiveCollectionSlugs(): Promise<{ slug: string }[]> {
  *  "no products match these filters" empty state rather than needing a
  *  more complex, fragile pre-filter query. */
 export async function getActiveCollectionsList(): Promise<CollectionRow[]> {
-  const supabase = createPublicClient(REVALIDATE_SECONDS.category);
+  // Tagged "collections" too -- this is the filter-pill list on category
+  // pages, which must reflect an admin adding/renaming/deactivating a
+  // collection immediately, same reasoning as getCollectionBySlug above.
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "collections",
+  ]);
   const { data, error } = await supabase
     .from("collections")
     .select("id, slug, name_en, name_ar")
