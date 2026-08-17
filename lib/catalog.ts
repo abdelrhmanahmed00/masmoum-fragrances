@@ -197,13 +197,15 @@ export async function getCategoryProducts({
   gender?: ProductGender;
   collectionId?: string | null;
 }): Promise<ProductCardData[]> {
-  // Tagged "categories" too, not just product-scoped: PRODUCT_CARD_SELECT
-  // embeds category:categories(name_en, name_ar) via a join, so a category
-  // rename needs this invalidated the same as an actual category-table
-  // read would (see the Prompt 23 report for the full list of call sites
-  // that carry this tag and why).
+  // Tagged "categories" (Prompt 23 -- PRODUCT_CARD_SELECT embeds
+  // category:categories(name_en, name_ar) via a join) AND "products"
+  // (Prompt 27 -- this reads the products table itself, so a product
+  // create/edit/delete needs this invalidated too, not just a category
+  // rename). See the Prompt 27 report for the full list of call sites
+  // that carry "products".
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
+    "products",
   ]);
 
   // product_collections!inner(collection_id) is only added to the select
@@ -235,10 +237,11 @@ export async function getCollectionProducts({
 }: {
   collectionId: string;
 }): Promise<ProductCardData[]> {
-  // Tagged "categories" too -- same reasoning as getCategoryProducts above
-  // (PRODUCT_CARD_SELECT embeds category data via a join).
+  // Tagged "categories" + "products" -- same reasoning as
+  // getCategoryProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
+    "products",
   ]);
   const { data, error } = await supabase
     .from("products")
@@ -261,11 +264,11 @@ export async function getCollectionProducts({
  *  in ProductsSection.tsx (getAllProductsTab) and was deliberately never
  *  built on this function either. */
 export async function getAllActiveProducts(): Promise<ProductCardData[]> {
-  // Tagged "categories" too -- same reasoning as getCategoryProducts/
-  // getCollectionProducts above (PRODUCT_CARD_SELECT embeds category
-  // data via a join).
+  // Tagged "categories" + "products" -- same reasoning as
+  // getCategoryProducts/getCollectionProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
+    "products",
   ]);
   const { data, error } = await supabase
     .from("products")
@@ -327,10 +330,12 @@ type RawProductDetail = {
 export async function getProductBySlug(
   slug: string
 ): Promise<ProductDetail | null> {
-  // Tagged "categories" too -- PRODUCT_DETAIL_SELECT embeds category data
-  // via a join (same reasoning as the card-select call sites above).
+  // Tagged "categories" (PRODUCT_DETAIL_SELECT embeds category data via a
+  // join) + "products" (Prompt 27 -- this IS the product's own detail
+  // read, so an edit to this exact product needs it invalidated too).
   const supabase = createPublicClient(REVALIDATE_SECONDS.product, [
     "categories",
+    "products",
   ]);
   const { data, error } = await supabase
     .from("products")
