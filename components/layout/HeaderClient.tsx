@@ -274,12 +274,40 @@ export default function HeaderClient({
     // other symmetric values already are (the gradient underline's
     // center-fade, this component's own left-1/2 centering elsewhere) --
     // there is no "start/end" axis for a Y-axis motion to mirror.
-    <header
-      className={
-        "fixed inset-x-0 top-0 z-50 bg-brand-black shadow-lg transition-transform duration-300 will-change-transform " +
-        (isHeaderVisible ? "translate-y-0" : "-translate-y-full")
-      }
-    >
+    //
+    // Prompt 84 -- real bug fix, wraps the return in a Fragment: the
+    // mobile off-canvas nav (below, after the gradient underline) used to
+    // be a CHILD of this <header>, but this element always has a real,
+    // non-"none" `transform` applied (translate-y-0 / -translate-y-full,
+    // whichever isHeaderVisible picks) AND `will-change-transform` -- both
+    // independently make an element the CSS containing block for its own
+    // `position: fixed` descendants, per spec. The mobile-nav overlay
+    // below is itself `fixed inset-0`, meant to size against the real
+    // viewport -- nested inside this <header>, it was instead sizing
+    // against the HEADER's own box (fixed, full width, but only as tall
+    // as its own content -- 69-107px depending on breakpoint/direction,
+    // see globals.css), collapsing the entire drawer down to a sliver the
+    // height of the header bar itself. Confirmed via real getBoundingClientRect()
+    // measurements (both a real Chromium instance AND a real WebKit
+    // instance, driving the actual live production deployment, real tap
+    // events) -- not a data problem, not a categories-fetching problem
+    // (the category rows were always correct in the server-rendered HTML,
+    // in every test), a pure CSS containing-block bug that only a real
+    // rendered-layout measurement (not markup/class-name inspection) could
+    // catch. Fixed by moving the mobile-nav overlay OUT of <header>
+    // entirely, to be its OWN sibling -- `position: fixed` elements
+    // position against the viewport regardless of DOM nesting depth as
+    // long as no ancestor establishes a containing block, so this has zero
+    // effect on the drawer's actual visual position/z-index under normal
+    // (non-buggy) circumstances, it just removes the one ancestor that was
+    // wrongly claiming that role.
+    <>
+      <header
+        className={
+          "fixed inset-x-0 top-0 z-50 bg-brand-black shadow-lg transition-transform duration-300 will-change-transform " +
+          (isHeaderVisible ? "translate-y-0" : "-translate-y-full")
+        }
+      >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         {/* Mobile: hamburger (hidden on desktop). text-brand-black ->
             text-brand-gold (base text/icon color, real contrast math on
@@ -471,6 +499,7 @@ export default function HeaderClient({
         aria-hidden="true"
         className="h-px w-full bg-linear-to-r from-transparent via-brand-gold/50 to-transparent"
       />
+      </header>
 
       {/* Mobile off-canvas nav — container/backdrop/slide-direction
           mechanics UNCHANGED since Prompt 5 (full-screen backdrop + panel
@@ -478,7 +507,11 @@ export default function HeaderClient({
           RTL via the rtl: variant), and its own light theme (white
           panel, black text, brand-border dividers) is ALSO deliberately
           UNCHANGED by any header redesign since (Prompt 56 through 66) --
-          a real decision, not an oversight:
+          a real decision, not an oversight. Prompt 84: this whole overlay
+          moved from being a CHILD of <header> to a SIBLING of it -- see
+          this file's own top-of-return comment for the real containing-
+          block bug this fixes. Everything else about it (backdrop, slide
+          mechanics, light theme, z-[60]) is byte-for-byte unchanged:
             - This drawer is a solid, fully opaque navigation surface
               (its own dark scrim sits behind it separately, below), not
               a "floating over page content" surface the way the header
@@ -576,6 +609,6 @@ export default function HeaderClient({
           </div>
         </div>
       </div>
-    </header>
+    </>
   );
 }

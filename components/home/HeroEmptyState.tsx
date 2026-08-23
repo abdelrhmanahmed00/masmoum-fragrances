@@ -57,6 +57,11 @@ const BRAND_NAME = "MASMOUM FRAGRANCES";
  * Prompt 73: pt-header-offset lg:pt-header-offset-lg -- the two exact
  * (not rounded) per-breakpoint values, see globals.css's own comment for
  * the full arithmetic.
+ *
+ * Prompt 84: same two classes, unchanged -- the header's real per-width,
+ * per-direction (LTR vs RTL genuinely differ) height is now handled by
+ * extra CSS cascade rules on these same tokens in globals.css. See
+ * globals.css for the real measurements/reasoning.
  */
 export default async function HeroEmptyState() {
   const t = await getTranslations("Hero");

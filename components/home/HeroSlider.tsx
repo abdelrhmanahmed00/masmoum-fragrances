@@ -162,6 +162,19 @@ export default function HeroSlider({ slides }: { slides: SlideWithUrl[] }) {
     // margin -- see globals.css's own comment for the full arithmetic
     // and why the previous rounded-up value produced a visible gap.
     //
+    // Prompt 84 -- real bug, confirmed against the live production site on
+    // real narrow phone widths: below a real (non-round, non-Tailwind-
+    // breakpoint-aligned) width, the wordmark AND the Quote pill's own
+    // label both wrap to a second line, making the header's TRUE height
+    // considerably taller than this comment's original 73/69px math --
+    // the exact gap this Hero's zero-overlap design depends on being
+    // accurate. Growing the offset (not shrinking the wordmark to prevent
+    // the wrap, confirmed not realistically possible at this width without
+    // a broader mobile-header redesign) was the fix, entirely inside
+    // globals.css's own cascade rules on the SAME two tokens this
+    // className still reads -- see globals.css for the real per-width,
+    // per-direction (LTR vs RTL genuinely differ) measured numbers.
+    //
     // Static offset vs. the header's hide-on-scroll (Prompt 70): kept
     // static, deliberately not made dynamic. Once a visitor has scrolled
     // far enough for the header to hide, they're already well past the

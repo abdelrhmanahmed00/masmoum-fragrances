@@ -106,11 +106,12 @@
        Quote pill     (always):      border(1+1=2) + py-1.5(6+6=12)
                       + max(text-sm 20, h-4 icon 16)                = 34px
 
-     MOBILE (<lg, hamburger visible, Menu trigger hidden):
+     MOBILE (hamburger visible, Menu trigger hidden), WHEN the wordmark
+     and Quote pill both fit their content on one line:
        tallest = hamburger, 40px
        total = py-4 top(16) + 40 + py-4 bottom(16) + underline(1) = 73px
 
-     DESKTOP (>=lg, hamburger hidden, Menu trigger visible):
+     DESKTOP (>=lg, hamburger hidden, Menu trigger visible), LTR:
        tallest = Search icon, 36px  <- NOT the Quote pill (34px); Prompt
        70's math never separately checked Search against Quote and
        picked Quote as tallest by assumption, which was wrong once Search
@@ -118,18 +119,117 @@
        actually compared against Quote's bordered/padded pill -- 36 > 34.
        total = py-4 top(16) + 36 + py-4 bottom(16) + underline(1) = 69px
 
-     Two exact values, not one flattened number: --spacing-header-offset
-     (73px, the mobile/base value, since Tailwind's unprefixed utilities
-     are the mobile-first default) and --spacing-header-offset-lg (69px,
-     applied via an lg: variant) -- both generate real utilities
-     (pt-header-offset / pt-header-offset-lg), confirmed via a real
-     compile before relying on either (see the Prompt 73 report). Applied
-     as `pt-header-offset lg:pt-header-offset-lg` everywhere this was
-     previously a single flat class -- the quote layout, five marketing
-     pages, and the homepage's Hero (both HeroSlider.tsx and
-     HeroEmptyState.tsx). */
-  --spacing-header-offset: 73px;
+     --- Prompt 84: the above silently assumed two things that turn out to
+     be false at real narrow widths, and false differently again in
+     Arabic. Both were found via real getBoundingClientRect() measurements
+     against the live production deployment (a real headless Chrome
+     instance driving both /en and /ar, not assumed), swept at 5px
+     resolution around every transition below. ---
+
+     FALSE ASSUMPTION 1: the wordmark and the Quote pill's own label
+     always fit their content on one line below `lg`. They don't -- the
+     mobile row packs hamburger + the FULL "MASMOUM FRAGRANCES" wordmark
+     + search icon + language pill + the Quote pill all into one flex row
+     with no `lg:flex-1` growing to help (that only applies at `lg`).
+     Checked the real numbers before deciding how to fix this: at 320px,
+     the wordmark's own NATURAL (unwrapped) width is ~205px and the Quote
+     pill's is ~118px; together with the hamburger/search/language pill
+     and the row's own gaps/padding, the row needs ~506px to lay out on
+     one line -- more than 1.75x the ~288px actually available inside a
+     320px viewport. No reasonable font-size reduction closes a gap that
+     large without making the brand wordmark illegibly small, so this is
+     fixed by GROWING the offset to the real worst-case height, not by
+     preventing the wrap -- genuinely preventing it would mean redesigning
+     what the mobile row shows at all (e.g. hiding elements below some
+     width), a much bigger, differently-scoped change than a spacing fix.
+
+     FALSE ASSUMPTION 2: the header's real height doesn't depend on
+     direction. It does -- Arabic's "Quote (0)"-equivalent label and the
+     Tajawal font's own line-height metrics differ enough from English/
+     Jost to change both WHICH width the wrap resolves at and WHAT the
+     header's settled desktop height even is (71px in Arabic vs 69px in
+     English -- a real 2px difference that persists all the way up to
+     1280px+, confirmed, not just a narrow-mobile-only quirk).
+
+     REAL MEASURED VALUES (getBoundingClientRect().height on the actual
+     <header>, first swept in 5px steps to bracket each transition, then
+     re-swept at 1px resolution around each one to find the EXACT pixel
+     the header itself actually changes height at -- the CSS breakpoints
+     below use those exact pixels, not the coarser 5px bracket, after an
+     earlier version of this fix (min-width:476px/536px for the RTL
+     tiers) turned out to be a few px too early relative to where the
+     header itself really shrinks, causing a real confirmed 14-20px
+     OVERLAP right at those boundary widths -- the offset had already
+     dropped before the header had):
+
+       LTR (English):
+         <=530px:  87px  (wordmark wraps to 2 lines: 48px not 24px, AND
+                          the Quote pill's own "Quote (0)" text also wraps
+                          inside its pill: 54px not 34px -- the Quote pill,
+                          not the wordmark, ends up the tallest element)
+         >=531px (exact): 73px, flat through 1023px (both back to one line)
+         >=1024px: 69px  (desktop math above, unchanged from Prompt 73)
+
+       RTL (Arabic) -- a real THIRD narrow-mobile tier, not just a
+       relabeled version of English's:
+         <=477px:  107px
+         >=478px (exact): 87px, flat through 536px -- matches English's
+                          87px value by coincidence of which element wraps,
+                          not by design
+         >=537px (exact): 73px, flat through 1023px, same as LTR
+         >=1024px: 71px  (NOT 69px -- confirmed flat 1024-1280px)
+
+     Implementation: rather than expressing this as more Tailwind
+     breakpoint-prefixed utility classes (the real transition widths above
+     --530/535, 475/480, 535/540 -- don't line up with Tailwind's fixed sm
+     640px/lg 1024px grid; an earlier version of this fix used `sm:` at
+     640px and left a real, confirmed 14px GAP across the whole
+     535-639px range where the true height had already dropped to 73px
+     but the offset was still using 640px as its cutover), the THREE
+     className-level tokens stay exactly as they were before this prompt
+     (--spacing-header-offset / -lg, applied via the unchanged
+     `pt-header-offset lg:pt-header-offset-lg` classes already used
+     everywhere) -- what changes is that their VALUES now cascade via
+     plain CSS custom-property overrides below, keyed on real min-width
+     breakpoints and on `html[dir="rtl"]` (next-intl sets dir on <html>,
+     app/[locale]/layout.tsx), using ordinary CSS cascade specificity/
+     source-order rules (the exact same mechanism Tailwind's own `lg:`
+     utility already relied on relative to the unprefixed base -- this
+     just adds more layers of the same idea, not a new mechanism). No
+     JSX/className changes were needed anywhere to pick this up. */
+  --spacing-header-offset: 87px;
   --spacing-header-offset-lg: 69px;
+}
+
+/* Header-offset real-height cascade (Prompt 84) -- see the @theme block
+   above for the full derivation. Plain CSS, not @theme, since these are
+   conditional OVERRIDES of the same custom properties, not new utility-
+   generating tokens. Ordering below is LTR narrow->wide first, then the
+   RTL block, which relies on `html[dir="rtl"]` being MORE specific than
+   a bare `:root` rule (so it always wins over the LTR rules regardless of
+   source order), with its own internal min-width overrides layered the
+   same way underneath it. */
+@media (min-width: 531px) {
+  :root {
+    --spacing-header-offset: 73px;
+  }
+}
+
+html[dir="rtl"] {
+  --spacing-header-offset: 107px;
+  --spacing-header-offset-lg: 71px;
+}
+
+@media (min-width: 478px) {
+  html[dir="rtl"] {
+    --spacing-header-offset: 87px;
+  }
+}
+
+@media (min-width: 537px) {
+  html[dir="rtl"] {
+    --spacing-header-offset: 73px;
+  }
 }
 
 body {

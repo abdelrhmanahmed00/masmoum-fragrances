@@ -85,7 +85,10 @@ export default async function ProductPage({
     // heights, no rounding (globals.css has the full arithmetic) --
     // pb-8/md:pb-12 keeps this page's own bottom rhythm (kept distinct
     // from the other marketing pages' py-12/md:py-16, exactly as it's
-    // been since before Prompt 57 first touched it).
+    // been since before Prompt 57 first touched it). Prompt 84: the same
+    // two classes still apply unchanged -- the header's real per-width,
+    // per-direction height is now handled by extra CSS cascade rules on
+    // these same tokens in globals.css, not by new classes here.
     <div className="mx-auto max-w-6xl px-4 pb-8 pt-header-offset lg:pt-header-offset-lg md:pb-12 lg:px-8">
       {/* Meta Pixel ViewContent (Prompt 47) -- fires once per real page
           view, using whatever name this locale actually rendered (so
@@ -94,7 +97,19 @@ export default async function ProductPage({
           a no-op when the pixel itself isn't configured (see the
           component's own comment). */}
       <MetaViewContentTracker productId={product.id} productName={name} />
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
+      {/* Prompt 84 -- extra breathing room ABOVE the gallery specifically,
+          stacked on top of (not replacing) the pt-header-offset* padding
+          above, which only clears the header with zero deliberate slack
+          (by design -- other pages, and the homepage Hero, all rely on
+          that same exact-clearance behavior; that shared token itself
+          stays untouched here). This is the OPPOSITE of the homepage
+          Hero's intentional flush-against-header design (Prompt 73/84) --
+          a deliberate per-page addition, not a correction to the shared
+          offset. mt-8 md:mt-12 chosen to mirror this page's own existing
+          pb-8/md:pb-12 bottom rhythm (visible a few lines up) rather than
+          inventing an unrelated new spacing value -- top and bottom of
+          this page's main content now breathe by the same amount. */}
+      <div className="mt-8 grid grid-cols-1 gap-8 md:mt-12 md:grid-cols-2 md:gap-12">
         <ProductGallery images={images} productName={name} />
 
         <div>
