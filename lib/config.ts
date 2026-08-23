@@ -49,6 +49,18 @@ export const REVALIDATE_SECONDS = {
    *  Footer, but changes only when an admin edits it, so a long window is
    *  fine and keeps the read count low across the whole site. */
   siteSettings: 3600, // 1 hour
+  /** integration_settings' meta_pixel_id (Prompt 47) — rendered on every
+   *  page via the root layout's Meta Pixel base script, same rationale as
+   *  siteSettings above: changes only via an admin edit, so a long window
+   *  keeps the per-page-load read count down. Only the pixel ID is ever
+   *  read through this cached path — the CAPI token is read uncached,
+   *  on-demand, only from the quote submission Server Action (see
+   *  lib/meta-conversions-api.ts). */
+  metaIntegration: 3600, // 1 hour
+  /** Static pages (Policy, Private Label, ...; Prompt 49) — changes only
+   *  when an admin edits a page, same long-window rationale as every
+   *  other rarely-changing dashboard-managed content type above. */
+  pages: 3600, // 1 hour
 } as const;
 
 export const siteConfig = {

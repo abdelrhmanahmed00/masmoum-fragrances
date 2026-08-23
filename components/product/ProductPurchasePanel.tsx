@@ -5,7 +5,17 @@ import { useTranslations } from "next-intl";
 import AddToQuoteButton from "./AddToQuoteButton";
 import { clampQuantity } from "@/lib/quote-quantity";
 
-type Size = { id: string; sizeLabel: string };
+type Size = {
+  id: string;
+  sizeLabel: string;
+  /** Prompt 33: already RESOLVED per size (lib/stock.ts's
+   *  resolveAvailableStock, applied in lib/catalog.ts) -- this size's own
+   *  override if it has one, else the product-level pool shared with
+   *  every other size that has none, else null/unlimited. This is what
+   *  actually governs THIS size, independent of every other size's own
+   *  resolved value. */
+  stockQuantity: number | null;
+};
 
 // CONFIRMED from the reference site: quantity stepper (minus button /
 // number input / plus button, bordered box, 46px tall) sits directly next
@@ -36,19 +46,22 @@ export default function ProductPurchasePanel({
   categoryName: { en: string; ar: string } | null;
   imageUrl: string | null;
   sizes: Size[];
-  /** null = unlimited/always available; 0 = sold out (Prompt 28) -- same
-   *  binary signal as ProductCard, not the exact count. */
+  /** The product's own resolved-with-no-size-selected value (i.e. just
+   *  its raw stock_quantity -- resolveAvailableStock with a null size
+   *  input returns exactly that). Prompt 33: this is now ONLY the
+   *  governing number when there's no size to select at all (sizes is
+   *  empty) -- once a size is selected, that size's OWN resolved
+   *  stockQuantity (above) takes over entirely, never blended with this
+   *  one. null = unlimited/always available; 0 = sold out (Prompt 28) --
+   *  same binary signal as ProductCard, not the exact count. */
   stockQuantity: number | null;
   /** Prompt 29: used only to detect the MOQ-vs-stock edge case (moq >
-   *  stockQuantity -- no quantity satisfies both, treated as unavailable).
-   *  NOT used to raise the stepper's own floor -- MOQ has never been
-   *  enforced as the stepper's minimum (it only ever starts at 1 and
-   *  decrements to 1, both before and after this prompt); the informational
-   *  "Minimum Order Quantity: N units" text on the page is the only place
-   *  MOQ has ever been surfaced. Retrofitting MOQ-as-floor across every
-   *  product would be a real, separate UX change beyond the stock-cap bug
-   *  this prompt actually reported -- flagged here rather than silently
-   *  bundled in. */
+   *  effective stock -- no quantity satisfies both, treated as
+   *  unavailable). NOT used to raise the stepper's own floor -- MOQ has
+   *  never been enforced as the stepper's minimum (it only ever starts at
+   *  1 and decrements to 1); the informational "Minimum Order Quantity: N
+   *  units" text on the page is the only place MOQ has ever been
+   *  surfaced. */
   moq: number;
 }) {
   const t = useTranslations("ProductDetail");
@@ -58,14 +71,23 @@ export default function ProductPurchasePanel({
   const [quantity, setQuantity] = useState(1);
 
   const selectedSize = sizes.find((s) => s.id === selectedSizeId) ?? null;
-  const isSoldOut = stockQuantity === 0;
-  // moq > stockQuantity: e.g. MOQ 10 but only 3 in stock -- no quantity
+
+  // Prompt 33: the number that actually governs right now -- the
+  // SELECTED size's own resolved stock if there is one, else the
+  // product-level fallback prop (which is exactly what a product with no
+  // sizes at all should use). Every isSoldOut/clamp/cap calculation below
+  // reads this, never the raw stockQuantity prop directly, so switching
+  // sizes recomputes availability correctly on its own.
+  const effectiveStock = selectedSize ? selectedSize.stockQuantity : stockQuantity;
+
+  const isSoldOut = effectiveStock === 0;
+  // moq > effectiveStock: e.g. MOQ 10 but only 3 in stock -- no quantity
   // satisfies both constraints at once. Treated the same as sold out
   // (stepper + Add to Quote disabled) rather than left as a stepper
   // stuck between a floor of 1 and a cap of 3 while still implying the
   // product is orderable.
   const isMoqUnavailable =
-    stockQuantity !== null && stockQuantity > 0 && moq > stockQuantity;
+    effectiveStock !== null && effectiveStock > 0 && moq > effectiveStock;
   const isUnavailable = isSoldOut || isMoqUnavailable;
   // Distinct wording from "Sold Out" on purpose -- stock genuinely isn't
   // zero in the MOQ case, so calling it "Sold Out" would be inaccurate.
@@ -77,11 +99,13 @@ export default function ProductPurchasePanel({
 
   // Same clampQuantity used by QuoteProvider (Prompt 29) -- one shared
   // definition of "what does capping a quantity at stock mean", not a
-  // second copy of the same formula.
+  // second copy of the same formula. Re-clamps against the newly
+  // effective stock whenever the selected size changes, in case the
+  // previous quantity now exceeds the new size's own cap.
   const updateQuantity = (next: number) => {
-    setQuantity(clampQuantity(next, stockQuantity));
+    setQuantity(clampQuantity(next, effectiveStock));
   };
-  const atMax = stockQuantity != null && quantity >= stockQuantity;
+  const atMax = effectiveStock != null && quantity >= effectiveStock;
 
   return (
     <div className="mt-6 space-y-6">
@@ -101,17 +125,38 @@ export default function ProductPurchasePanel({
           <div className="flex flex-wrap gap-2">
             {sizes.map((size) => {
               const isActive = selectedSizeId === size.id;
+              // Prompt 33: each pill reflects ITS OWN resolved
+              // availability -- a size drawing from a depleted
+              // product-level pool shows as sold out here even though its
+              // own row has never had a number set, exactly the same as a
+              // size with its own override at 0.
+              const sizeSoldOut = size.stockQuantity === 0;
               return (
                 <button
                   key={size.id}
                   type="button"
-                  onClick={() => setSelectedSizeId(size.id)}
+                  onClick={() => {
+                    if (sizeSoldOut) return;
+                    setSelectedSizeId(size.id);
+                    // Re-clamp immediately against the newly selected
+                    // size's own cap -- otherwise a quantity picked while
+                    // a generously-stocked size was selected could stay
+                    // above a more limited size's cap until the stepper
+                    // was touched again.
+                    setQuantity((current) =>
+                      clampQuantity(current, size.stockQuantity)
+                    );
+                  }}
+                  disabled={sizeSoldOut}
                   aria-pressed={isActive}
+                  aria-disabled={sizeSoldOut}
                   className={
                     "rounded-btn border px-4 py-2 text-sm transition-colors " +
-                    (isActive
-                      ? "border-brand-black bg-brand-black text-brand-white"
-                      : "border-brand-border text-brand-black hover:border-brand-black")
+                    (sizeSoldOut
+                      ? "cursor-not-allowed border-brand-border text-brand-gray line-through opacity-50"
+                      : isActive
+                        ? "border-brand-black bg-brand-black text-brand-white"
+                        : "border-brand-border text-brand-black hover:border-brand-black")
                   }
                 >
                   {size.sizeLabel}
@@ -136,7 +181,7 @@ export default function ProductPurchasePanel({
           <input
             type="number"
             min={1}
-            max={stockQuantity ?? undefined}
+            max={effectiveStock ?? undefined}
             value={quantity}
             onChange={(e) => updateQuantity(Number(e.target.value) || 1)}
             aria-label={t("quantity")}
@@ -154,6 +199,13 @@ export default function ProductPurchasePanel({
           </button>
         </div>
 
+        {/* Prompt 71: same gold/black restyle as AddToQuoteButton.tsx's
+            own DEFAULT_CLASS_NAME (see that file's comment for the full
+            reasoning) -- this className override only exists for this
+            panel's own layout needs (flex-1 next to the quantity
+            stepper, no w-full/py-2.5 since it shares a row instead of
+            stacking alone); the color classes themselves are copied
+            verbatim, not reinterpreted. */}
         <AddToQuoteButton
           productId={productId}
           productSlug={productSlug}
@@ -162,12 +214,12 @@ export default function ProductPurchasePanel({
           categoryNameEn={categoryName?.en ?? null}
           categoryNameAr={categoryName?.ar ?? null}
           imageUrl={imageUrl}
-          stockQuantity={stockQuantity}
+          stockQuantity={effectiveStock}
           disabled={isUnavailable}
           sizeId={selectedSize?.id ?? null}
           sizeLabel={selectedSize?.sizeLabel ?? null}
           quantity={quantity}
-          className="flex-1 rounded-btn border border-brand-black bg-brand-black px-4 text-sm font-medium text-brand-white transition-colors hover:bg-brand-white hover:text-brand-black"
+          className="flex-1 rounded-btn border border-brand-gold bg-brand-gold px-4 text-sm font-medium text-brand-black transition-colors hover:border-brand-black hover:bg-brand-black hover:text-brand-gold"
         />
       </div>
     </div>

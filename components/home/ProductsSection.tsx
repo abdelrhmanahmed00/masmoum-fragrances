@@ -124,8 +124,88 @@ export default async function ProductsSection() {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 md:py-16 lg:px-8">
+      {/* Prompt 60: gold "highlighter" band behind the heading text.
+          CONFIRMED real technique from re-inspecting shop-gulforchid.com's
+          live inline <style> block (not the theme.css/chunk.css bundles --
+          this section's CSS ships inline in the page HTML) for its
+          `.vikst-ftabs__heading` rule:
+
+            .vikst-ftabs__heading { position:relative; display:inline-block; z-index:1; }
+            .vikst-ftabs__heading span { position:relative; display:inline-block; z-index:1; }
+            .vikst-ftabs__heading span::before {
+              content:""; position:absolute; left:0; right:0; bottom:10%;
+              height:0.55em; background:#E7D4B4; z-index:-1;
+            }
+
+          i.e. a plain background-color box (NOT box-decoration-break, NOT
+          a linear-gradient, NOT text-shadow/mark) on a ::before positioned
+          absolutely inside a `position:relative; display:inline-block`
+          span that wraps just the heading text -- so the box is exactly
+          text-width, not section-width, and sits behind the glyphs
+          (z-index:-1) starting 10% up from the span's own bottom edge and
+          rising 0.55em, giving the "highlighter stroke sits mid-letter,
+          not a full solid block" look visible in the reference screenshot.
+          Replicated 1:1 below via inset-x-0/bottom-[10%]/h-[0.55em] on an
+          absolutely-positioned span, `-z-10` so it paints behind the
+          sibling text node (in CSS paint order, a negative-z-index
+          positioned descendant paints before its ancestor's own in-flow
+          content, which a zero/auto z-index would NOT).
+
+          Color: reference uses a hardcoded #E7D4B4 (not their --underline
+          gold token, which is the full-strength #dcb689 used for tab/
+          border accents elsewhere on their own site). Reverse-solving
+          "white blended with #dcb689 at what alpha = #E7D4B4" comes out to
+          ~60-65% per channel -- confirming a *tinted*, not full-strength,
+          gold is the right family of value, not a literal new color. This
+          project has no #E7D4B4-equivalent token and isn't adding one --
+          using brand-gold itself at bg-brand-gold/40 (i.e. #dcb689 at 40%
+          over the white section background) intentionally lands lighter
+          than that ~60% reference-equivalent: a "soft highlight" reads
+          right at this heading's smaller size (2xl/3xl vs. the
+          reference's 42px), where full-strength brand-gold (already used
+          at 100% for borders/pills in the Header/Hero) would look like a
+          swatch, not a marker stroke.
+
+          Multi-line wrapping: verified, not assumed. This exact reference
+          technique does NOT robustly survive real multi-line wrapping --
+          the ::before is one box sized in em units for a single line
+          (bottom:10%/height:0.55em are relative to the whole, possibly
+          multi-line, inline-block span), so on the reference's own much
+          longer "YOUR JOURNEY STARTS HERE" heading at narrow widths this
+          would only band the last line, not each line -- box-decoration-
+          break isn't in play here, since it isn't a text-level background,
+          it's a single absolutely-positioned pseudo-element. That's a real
+          limitation of the technique being replicated, not something this
+          project needs to work around: t("heading") is "Our Products" (en)
+          / "منتجاتنا" (ar) -- the Arabic string is one unbroken word with
+          no space/hyphen break opportunity, so it structurally cannot
+          wrap to a second line at any width (nothing here sets
+          overflow-wrap:anywhere to force mid-word breaks); the English
+          string, at this heading's 24px/30px sizing (far smaller than the
+          reference's 42px), comfortably fits on one line even at a 320px
+          viewport (small margin: ~13 characters * ~0.55em average advance
+          for a font-medium sans ≈ 8.25em ≈ 198px at 24px, well under a
+          320px viewport minus the section's own px-4 gutters). Confirmed
+          via this markup/CSS + typography math, not a live pixel
+          measurement -- no headless browser is available in this
+          environment to screenshot it; flagged as needing your live visual
+          check per the task's own instruction.
+
+          No RTL variant needed on inset-x-0: verified via the real
+          compiled CSS that Tailwind v4 emits it as the logical
+          `inset-inline:0` (both inline-start and inline-end pinned to 0),
+          not physical left/right -- either way it's symmetric, so it's
+          direction-agnostic the same way the Header logo's
+          left-1/2/-translate-x-1/2 centering was (Prompt 56) -- there is
+          no "start/end" asymmetry here for an RTL variant to mirror. */}
       <h2 className="mb-8 text-center text-2xl font-medium text-brand-black md:text-3xl">
-        {t("heading")}
+        <span className="relative inline-block">
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 bottom-[10%] -z-10 h-[0.55em] bg-brand-gold/40"
+          />
+          {t("heading")}
+        </span>
       </h2>
       <ProductTabs tabs={tabs} />
     </section>

@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
+import { trimmedOrNull } from "@/lib/form-utils";
+import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
 import type {
   CategoryOption,
   ProductActionState,
@@ -11,9 +13,6 @@ import type {
 // Same plain-function-taking-a-client split as lib/admin/categories.ts /
 // lib/admin/collections.ts (Prompts 23/26) -- see categories.ts's own
 // comment for the full reasoning, not repeated here.
-
-const UNIQUE_VIOLATION = "23505";
-const FK_VIOLATION = "23503";
 
 // Deliberately NOT lib/catalog.ts's own VALID_GENDERS -- that one is
 // scoped to the public gender *filter* UI (Prompt 9/11) and intentionally
@@ -27,12 +26,6 @@ const VALID_GENDERS: readonly ProductGenderValue[] = [
   "unisex",
   "not_applicable",
 ];
-
-function trimmedOrNull(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 type ProductInput = {
   name_en: string;
@@ -199,7 +192,19 @@ export async function createProduct(
     };
   }
 
-  const { error } = await supabase.from("products").insert(values);
+  // .select("id") + .single(): Prompt 32 needs the new row's id back so
+  // createProductAction can redirect straight to its edit page (sizes --
+  // and Prompt 33's images -- can only be added to a product that already
+  // exists, so landing there directly, not on the list, is what actually
+  // lets the admin continue in one flow). authenticated has a SELECT
+  // grant via the 0014 admin RLS policy, same as every other admin read,
+  // so reading back the just-inserted row works here unlike the public
+  // anon-key insert paths elsewhere in this project that can't do this.
+  const { data, error } = await supabase
+    .from("products")
+    .insert(values)
+    .select("id")
+    .single();
 
   if (error) {
     if (error.code === UNIQUE_VIOLATION) {
@@ -222,7 +227,7 @@ export async function createProduct(
     };
   }
 
-  return { status: "success" };
+  return { status: "success", id: data.id };
 }
 
 export async function updateProduct(
@@ -293,15 +298,22 @@ export async function updateProduct(
  * first-class field and achieves the actual goal (stop showing it
  * publicly) without destroying the historical record.
  *
- * One thing this prompt does NOT need to handle, flagged for the future
- * (Part 3 -- Images): product_images.storage_path rows cascade-delete
- * from the DB automatically, but that does NOT delete the underlying file
- * from Supabase Storage -- a DB cascade has no way to reach an external
- * storage bucket. That would leave orphaned files after a product delete.
- * Moot for THIS prompt (no product has any images yet -- image upload
- * doesn't exist until a later prompt), but whichever prompt adds image
- * upload should also make product deletion clean up the actual Storage
- * objects, not just rely on the DB cascade.
+ * Prompt 34 closes the gap flagged above (it was moot before -- no
+ * product had any images until image upload existed): product_images
+ * rows cascade-delete from the DB automatically when the product goes,
+ * but that never touches the actual files in the "product-images"
+ * Storage bucket -- a DB cascade has no way to reach an external system.
+ * This function now fetches every storage_path for this product BEFORE
+ * deleting it (the cascade removes the product_images rows the instant
+ * the products row goes, so this is the last chance to know which
+ * objects need cleaning up), then removes those Storage objects AFTER
+ * the product delete succeeds. Same ordering reasoning as
+ * lib/admin/product-images.ts's deleteProductImage: if Storage cleanup
+ * fails, the worst outcome is orphaned files (harmless, invisible) rather
+ * than a broken live reference from a delete that only half-completed --
+ * logged (console.warn), not silently swallowed, but doesn't fail the
+ * overall delete since the DB part (what actually matters for
+ * correctness) already succeeded.
  */
 export async function deleteProduct(
   supabase: SupabaseClient,
@@ -326,6 +338,13 @@ export async function deleteProduct(
     };
   }
 
+  // Must be read BEFORE the delete below -- ON DELETE CASCADE (0006)
+  // removes these rows the moment the products row is gone.
+  const { data: images } = await supabase
+    .from("product_images")
+    .select("storage_path")
+    .eq("product_id", id);
+
   const { error } = await supabase.from("products").delete().eq("id", id);
 
   if (error) {
@@ -340,6 +359,23 @@ export async function deleteProduct(
       status: "error",
       message: "Something went wrong deleting the product. Please try again.",
     };
+  }
+
+  // Storage cleanup AFTER the DB delete succeeds -- see this function's
+  // own comment above for the ordering reasoning. Best-effort: logged on
+  // failure, does not turn a successful product delete into a reported
+  // failure.
+  if (images && images.length > 0) {
+    const paths = images.map((img) => img.storage_path);
+    const { error: storageError } = await supabase.storage
+      .from("product-images")
+      .remove(paths);
+    if (storageError) {
+      console.warn(
+        `[products] Storage cleanup failed for product ${id} after delete (paths: ${paths.join(", ")}).`,
+        storageError
+      );
+    }
   }
 
   return { status: "success" };

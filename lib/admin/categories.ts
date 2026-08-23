@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
+import { trimmedOrNull } from "@/lib/form-utils";
+import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
 import type {
   CategoryActionState,
   CategoryFieldErrors,
@@ -22,17 +24,6 @@ import type {
 //      itself). See the Prompt 23 report for exactly what that script
 //      does and does not prove as a result.
 
-// Standard PostgreSQL SQLSTATE codes, passed through unchanged by
-// PostgREST/supabase-js on `.error.code` -- used to distinguish "which
-// constraint failed" without parsing the raw error message.
-const UNIQUE_VIOLATION = "23505";
-const FK_VIOLATION = "23503";
-
-function trimmedOrNull(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 type CategoryInput = {
   name_en: string;

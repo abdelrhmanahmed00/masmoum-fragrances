@@ -68,8 +68,43 @@ export type QuoteRequestErrorCode =
    *  can't trust that client-side redirect ran. */
   | "itemsInvalid"
   | "rateLimited"
+  /** Prompt 30: the submit_quote_request RPC rolled back the whole
+   *  submission because one or more line items requested more than the
+   *  product's current stock_quantity -- see insufficientStockProducts
+   *  for which one(s) and by how much. The client-side stepper cap
+   *  (Prompt 29) is only a same-session snapshot and can go stale between
+   *  page load and submit, so this is a real, expected outcome the form
+   *  has to handle, not just a defensive fallback. */
+  | "insufficientStock"
   /** Honeypot aside, a generic catch-all for DB insert failures. */
   | "submissionFailed";
+
+/** One product (or product+size) that couldn't be fulfilled at the
+ *  requested quantity, as reported by the submit_quote_request RPC's
+ *  INSUFFICIENT_STOCK exception payload. Both name fields are carried
+ *  (rather than just an id the client would have to re-resolve) so the
+ *  form can render a specific, locale-correct message without a further
+ *  round trip. */
+export type InsufficientStockProduct = {
+  productId: string;
+  /** Prompt 33: which pool was actually insufficient, per the hybrid
+   *  size/product precedence (lib/stock.ts) -- "size" when the specific
+   *  size had its own stock_quantity override, "product" when it fell
+   *  back to the shared product-level pool. Lets the form say something
+   *  more useful than a generic "out of stock" (e.g. that the shortage is
+   *  shared across other sizes too, not specific to the one requested). */
+  pool: "size" | "product";
+  /** The size that was actually requested, if any -- present regardless
+   *  of which pool governed (a size can still be named even when the
+   *  PRODUCT-level pool was the one that ran out). Null for a
+   *  product/quantity combo with no size selected at all. */
+  productSizeId: string | null;
+  sizeLabel: string | null;
+  nameEn: string;
+  nameAr: string;
+  available: number;
+  requested: number;
+};
 
 export type QuoteRequestActionState =
   | { status: "idle" }
@@ -78,6 +113,7 @@ export type QuoteRequestActionState =
       status: "error";
       code: QuoteRequestErrorCode;
       fieldErrors?: QuoteRequestFieldErrors;
+      insufficientStockProducts?: InsufficientStockProduct[];
     };
 
 export const QUOTE_REQUEST_INITIAL_STATE: QuoteRequestActionState = {

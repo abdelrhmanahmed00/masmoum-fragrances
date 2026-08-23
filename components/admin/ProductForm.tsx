@@ -286,7 +286,7 @@ export default function ProductForm({
           step={1}
           defaultValue={product?.stock_quantity ?? ""}
           error={fieldErrors?.stock_quantity}
-          hint="Leave empty for unlimited. The public site only ever shows Available / Sold Out, never the exact number."
+          hint="Leave empty for unlimited. If a size below (Sizes section) has its own number, it governs that size alone; sizes with no number of their own share this pool. The public site only ever shows Available / Sold Out, never the exact number."
         />
 
         <div className="flex flex-wrap gap-6">

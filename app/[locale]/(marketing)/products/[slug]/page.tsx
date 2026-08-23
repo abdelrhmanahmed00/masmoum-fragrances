@@ -1,10 +1,16 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
-import { getProductBySlug, getActiveProductSlugs } from "@/lib/catalog";
+import {
+  getProductBySlug,
+  getActiveProductSlugs,
+  getRelatedProducts,
+} from "@/lib/catalog";
 import { getPublicStorageUrl } from "@/lib/supabase/storage";
 import ProductGallery from "@/components/product/ProductGallery";
 import ProductPurchasePanel from "@/components/product/ProductPurchasePanel";
 import AccordionItem from "@/components/product/AccordionItem";
+import MetaViewContentTracker from "@/components/product/MetaViewContentTracker";
+import RelatedProducts from "@/components/product/RelatedProducts";
 
 // Slug-based, no searchParams -- same static-friendly shape as
 // /collections/[slug] (Prompt 11), so this is a plain SSG/ISR page, not
@@ -30,6 +36,17 @@ export default async function ProductPage({
   if (!product) notFound();
 
   const t = await getTranslations("ProductDetail");
+
+  // "You May Also Like" (Prompt 75) -- depends on product.categoryId, so
+  // this can't be parallelized with the getProductBySlug call above (the
+  // category to search by isn't known until that resolves). Renders
+  // nothing at all when empty (RelatedProducts.tsx's own job, not
+  // checked here) -- covers both "product has no category" and "no
+  // OTHER active products in this category" the same way, gracefully.
+  const relatedProducts = await getRelatedProducts({
+    categoryId: product.categoryId,
+    excludeProductId: product.id,
+  });
 
   const images = product.images.map((img) => ({
     url: getPublicStorageUrl("product-images", img.storagePath),
@@ -59,7 +76,24 @@ export default async function ProductPage({
   const hasNotes = Boolean(topNotes || middleNotes || baseNotes);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:py-12 lg:px-8">
+    // Prompt 57 split this into pb-8/pt-header-offset/md:pb-12 to clear
+    // the header's then-`fixed` positioning. Prompt 63 merged it back to
+    // plain py-8/md:py-12 when the header reverted to `sticky`. Prompt 70
+    // splits it out again -- the header is `fixed` once more (for
+    // hide-on-scroll-down/show-on-scroll-up). Prompt 73: pt-header-offset
+    // lg:pt-header-offset-lg -- the two EXACT per-breakpoint header
+    // heights, no rounding (globals.css has the full arithmetic) --
+    // pb-8/md:pb-12 keeps this page's own bottom rhythm (kept distinct
+    // from the other marketing pages' py-12/md:py-16, exactly as it's
+    // been since before Prompt 57 first touched it).
+    <div className="mx-auto max-w-6xl px-4 pb-8 pt-header-offset lg:pt-header-offset-lg md:pb-12 lg:px-8">
+      {/* Meta Pixel ViewContent (Prompt 47) -- fires once per real page
+          view, using whatever name this locale actually rendered (so
+          Meta's own reporting UI reflects what the visitor saw), not
+          always the English name regardless of locale. Renders nothing;
+          a no-op when the pixel itself isn't configured (see the
+          component's own comment). */}
+      <MetaViewContentTracker productId={product.id} productName={name} />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
         <ProductGallery images={images} productName={name} />
 
@@ -135,6 +169,13 @@ export default async function ProductPage({
           </div>
         </div>
       </div>
+
+      {/* "You May Also Like" (Prompt 75) -- a sibling of the two-column
+          gallery/details grid above (not nested inside it), so it spans
+          the full page width rather than being confined to the right
+          column. Below the accordion sections, at the bottom of the
+          page, per the task's own placement spec. */}
+      <RelatedProducts products={relatedProducts} />
     </div>
   );
 }

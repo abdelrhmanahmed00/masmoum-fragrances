@@ -31,6 +31,64 @@ export function createServiceRoleClient() {
 }
 
 /**
+ * Service-role client wrapped with Next's tagged fetch cache, mirroring
+ * createPublicClient's `next: { revalidate, tags }` wiring below but
+ * using SUPABASE_SERVICE_ROLE_KEY instead of the anon key.
+ *
+ * Added for Prompt 47 (Meta Pixel integration): integration_settings has
+ * NO anon grant/policy at all, by design (its meta_conversions_api_token
+ * column is a private secret -- see the 0023 migration's own comment).
+ * That means createPublicClient literally cannot read this table --
+ * there is no anon-readable row for it to fetch, regardless of caching.
+ * But meta_pixel_id (unlike the token) is NOT secret and needs to be
+ * embedded in every public page's HTML via the same ISR-friendly, tagged-
+ * cache pattern every other piece of public content uses (site_settings,
+ * catalog data, ...) -- a per-request dynamic fetch here would force the
+ * root layout, and therefore every single page in the app, off SSG/ISR
+ * (see lib/config.ts's caching strategy doc for why that's unacceptable
+ * at this project's traffic level).
+ *
+ * Using the service-role key here is a deliberate, narrow exception to
+ * "server components read with the anon-privileged client" — not an
+ * oversight — forced by the fact that no other role can read this table
+ * at all. The safety boundary is enforced by DISCIPLINE AT THE CALL SITE,
+ * not by this function: every caller (currently only
+ * lib/meta-pixel.ts's getMetaPixelId) must explicitly `.select()` only
+ * the non-secret column(s) it actually needs and must never pass the
+ * token through to anything client-visible. This client itself has full
+ * read/write access to every table, same as createServiceRoleClient
+ * above — it must never be reached for from a Client Component (enforced
+ * the same way, via the top-of-file `server-only` import).
+ */
+export function createCachedServiceRoleClient(
+  revalidateSeconds: number,
+  tags?: string[]
+) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Missing Supabase server environment variables: NEXT_PUBLIC_SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY."
+    );
+  }
+
+  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          next: { revalidate: revalidateSeconds, tags },
+        }),
+    },
+  });
+}
+
+/**
  * Public, anon-privileged server-side client for Server Components / RSC
  * data loaders reading public content (catalog, site settings). Unlike
  * createServiceRoleClient above, this does NOT bypass RLS — reads are still

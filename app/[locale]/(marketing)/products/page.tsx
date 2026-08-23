@@ -32,7 +32,15 @@ export default async function AllProductsPage({
   const products = await getAllActiveProducts();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 md:py-16 lg:px-8">
+    // Prompt 57 split this into pb-12/pt-header-offset/md:pb-16 to clear
+    // the header's then-`fixed` positioning. Prompt 63 merged it back to
+    // plain py-12/md:py-16 when the header reverted to `sticky`. Prompt
+    // 70 splits it out again -- the header is `fixed` once more (for
+    // hide-on-scroll-down/show-on-scroll-up). Prompt 73: pt-header-offset
+    // lg:pt-header-offset-lg -- the two EXACT per-breakpoint header
+    // heights, no rounding (globals.css has the full arithmetic) --
+    // pb-12/md:pb-16 keeps the original bottom rhythm.
+    <div className="mx-auto max-w-7xl px-4 pb-12 pt-header-offset lg:pt-header-offset-lg md:pb-16 lg:px-8">
       <h1 className="mb-8 text-center text-2xl font-medium text-brand-black md:text-3xl">
         {t("allProductsHeading")}
       </h1>

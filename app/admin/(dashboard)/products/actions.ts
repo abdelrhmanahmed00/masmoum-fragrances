@@ -32,7 +32,13 @@ export async function createProductAction(
 
   if (result.status === "success") {
     updateTag("products");
-    redirect("/admin/products");
+    // Prompt 32: redirect straight to the new product's own edit page,
+    // not the list -- sizes (and Prompt 33's images) can only be added
+    // to a product that already exists, so this is what actually lets
+    // the admin continue straight into managing them. Falls back to the
+    // list in the (shouldn't-happen) case createProduct ever returns
+    // success without an id.
+    redirect(result.id ? `/admin/products/${result.id}/edit` : "/admin/products");
   }
 
   return result;

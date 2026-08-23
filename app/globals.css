@@ -61,6 +61,75 @@
      is active for the current request's locale. ---- */
   --font-sans:
     var(--font-body), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* --- Header offset --- history: Prompt 57 added this when the header
+     first went `position: fixed`; Prompt 63 removed it when the header
+     reverted to `position: sticky`; Prompt 70 re-added it (fixed again,
+     for hide-on-scroll-down/show-on-scroll-up); Prompt 72 extended it to
+     the homepage's Hero too. Every one of those used a value rounded UP
+     "for cross-browser safety margin" -- the client's real screenshot
+     showed exactly what that produces: a visible gap between the header
+     and the Hero. Prompt 73 removes the rounding entirely and uses the
+     EXACT computed value -- zero deliberate slack.
+
+     Recomputed from scratch (not reused from Prompt 70's math, which
+     turns out to have picked the wrong "tallest element" at desktop --
+     see below), every contributing number cross-checked against the
+     REAL compiled Tailwind output before being used here (not assumed
+     from memory of Tailwind's documented defaults):
+       --spacing:            .25rem  = 4px   (confirmed: .p-2 = calc(var(--spacing)*2))
+       --text-xs line-height: 1/.75  = 16px  (12px font * 1.333..)
+       --text-sm line-height: 1.25/.875 = 20px (14px font * 1.42857..)
+       --text-base line-height: 1.5/1 = 24px (16px font * 1.5)
+       .border (bare) border-width:   1px
+
+     The header's box, top to bottom: content-row py-4 (padding-block,
+     top AND bottom) + whichever element is tallest in that row at the
+     given breakpoint + the 1px gradient underline strip (Prompt 63/66,
+     a real sibling <div className="h-px w-full ..."> AFTER the content
+     row, inside the same `fixed` header -- a genuine block-level
+     contributor to the header's total rendered height, not just a
+     decorative overlay, and NOT counted in any prior prompt's math).
+     box-shadow (shadow-lg) is correctly excluded -- shadows paint
+     outside the box without affecting layout height.
+
+     Per-element own rendered height (padding + border + content,
+     tallest inline child wins for flex rows with no padding of their
+     own):
+       hamburger      (mobile only): p-2 (8+8=16) + h-6 icon (24) = 40px
+       wordmark       (always):      text-base line-height only    = 24px
+       Menu trigger   (desktop only, `hidden lg:flex`): no padding,
+                      row content = max(text-sm 20, h-4 icon 16)    = 20px
+       Search icon    (always):      p-2 (8+8=16) + h-5 icon (20)  = 36px
+       Language pill  (always):      border(1+1=2) + py-1(4+4=8)
+                      + text-xs line-height (16)                   = 26px
+       Quote pill     (always):      border(1+1=2) + py-1.5(6+6=12)
+                      + max(text-sm 20, h-4 icon 16)                = 34px
+
+     MOBILE (<lg, hamburger visible, Menu trigger hidden):
+       tallest = hamburger, 40px
+       total = py-4 top(16) + 40 + py-4 bottom(16) + underline(1) = 73px
+
+     DESKTOP (>=lg, hamburger hidden, Menu trigger visible):
+       tallest = Search icon, 36px  <- NOT the Quote pill (34px); Prompt
+       70's math never separately checked Search against Quote and
+       picked Quote as tallest by assumption, which was wrong once Search
+       (a plain p-2+h-5 icon button, no text baseline to shrink it) is
+       actually compared against Quote's bordered/padded pill -- 36 > 34.
+       total = py-4 top(16) + 36 + py-4 bottom(16) + underline(1) = 69px
+
+     Two exact values, not one flattened number: --spacing-header-offset
+     (73px, the mobile/base value, since Tailwind's unprefixed utilities
+     are the mobile-first default) and --spacing-header-offset-lg (69px,
+     applied via an lg: variant) -- both generate real utilities
+     (pt-header-offset / pt-header-offset-lg), confirmed via a real
+     compile before relying on either (see the Prompt 73 report). Applied
+     as `pt-header-offset lg:pt-header-offset-lg` everywhere this was
+     previously a single flat class -- the quote layout, five marketing
+     pages, and the homepage's Hero (both HeroSlider.tsx and
+     HeroEmptyState.tsx). */
+  --spacing-header-offset: 73px;
+  --spacing-header-offset-lg: 69px;
 }
 
 body {

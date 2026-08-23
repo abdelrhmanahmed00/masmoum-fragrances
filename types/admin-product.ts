@@ -72,9 +72,90 @@ export type ProductFieldErrors = Partial<
 
 export type ProductActionState =
   | { status: "idle" }
-  | { status: "success" }
+  /** `id` present on a successful CREATE only (Prompt 32) -- lets
+   *  createProductAction redirect straight to the new product's own edit
+   *  page instead of the list, since sizes (this prompt) and images
+   *  (Prompt 33) can only be added to a product that already exists.
+   *  Absent on update/delete success -- the caller already knows the id. */
+  | { status: "success"; id?: string }
   | { status: "error"; message: string; fieldErrors?: ProductFieldErrors };
 
 export const PRODUCT_ACTION_INITIAL_STATE: ProductActionState = {
+  status: "idle",
+};
+
+/** Sizes are a nested resource of one product's edit page (Prompt 32),
+ *  not a top-level admin section -- no slug (never looked up by slug
+ *  anywhere, unlike categories/collections/products). */
+export type AdminProductSizeRow = {
+  id: string;
+  product_id: string;
+  size_label: string;
+  sort_order: number;
+  is_active: boolean;
+  /** Prompt 33 -- this size's OWN override, null = none set (falls back
+   *  to the product-level pool, or unlimited -- see lib/stock.ts's
+   *  resolveAvailableStock). The raw column, not resolved -- the admin
+   *  list needs to distinguish "this size has no number of its own" from
+   *  "this size is at 0", which a resolved value would collapse. */
+  stock_quantity: number | null;
+  /** Count of quote_request_items rows historically referencing this
+   *  size -- informational only, computed in lib/admin/product-sizes.ts's
+   *  getProductSizes, not a real column. Shown in the UI so the admin
+   *  knows before deleting; does NOT block deletion (see
+   *  deleteProductSize's own comment for why: product_size_id is ON
+   *  DELETE SET NULL, unlike products.id's ON DELETE RESTRICT). */
+  historicalQuoteCount: number;
+};
+
+export type ProductSizeFieldErrors = Partial<
+  Record<"size_label" | "sort_order" | "stock_quantity", string>
+>;
+
+export type ProductSizeActionState =
+  | { status: "idle" }
+  | { status: "success" }
+  | {
+      status: "error";
+      message: string;
+      fieldErrors?: ProductSizeFieldErrors;
+    };
+
+export const PRODUCT_SIZE_ACTION_INITIAL_STATE: ProductSizeActionState = {
+  status: "idle",
+};
+
+/** Images are a nested resource of one product's edit page (Prompt 34),
+ *  same pattern as AdminProductSizeRow above. storage_path only -- the
+ *  public URL is computed at render time via getPublicStorageUrl
+ *  (lib/supabase/storage.ts), never stored. */
+export type AdminProductImageRow = {
+  id: string;
+  product_id: string;
+  storage_path: string;
+  sort_order: number;
+  /** Exactly one row per product has this true whenever the product has
+   *  at least one image -- see lib/admin/product-images.ts's own comment
+   *  for how upload/delete/setPrimary all cooperate to guarantee that
+   *  invariant (first upload auto-primary, deleting the primary
+   *  auto-promotes another, explicit set-primary unsets the old one
+   *  first). */
+  is_primary: boolean;
+};
+
+export type ProductImageFieldErrors = Partial<
+  Record<"file" | "sort_order", string>
+>;
+
+export type ProductImageActionState =
+  | { status: "idle" }
+  | { status: "success" }
+  | {
+      status: "error";
+      message: string;
+      fieldErrors?: ProductImageFieldErrors;
+    };
+
+export const PRODUCT_IMAGE_ACTION_INITIAL_STATE: ProductImageActionState = {
   status: "idle",
 };

@@ -1,6 +1,7 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import { getPublicStorageUrl } from "@/lib/supabase/storage";
 import { REVALIDATE_SECONDS } from "@/lib/config";
+import { resolveAvailableStock } from "@/lib/stock";
 import type { ProductCardData } from "@/types/product";
 import type { ProductDetail } from "@/types/product-detail";
 
@@ -11,7 +12,7 @@ import type { ProductDetail } from "@/types/product-detail";
 // risk of keeping two copies outweighs the churn of merging them).
 
 export const PRODUCT_CARD_SELECT =
-  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active)";
+  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
 type RawImage = { storage_path: string; is_primary: boolean };
@@ -20,6 +21,10 @@ type RawSize = {
   size_label: string;
   sort_order: number;
   is_active: boolean;
+  /** Prompt 33 -- raw, unresolved. resolveAvailableStock (lib/stock.ts)
+   *  is what turns this + the product's own stock_quantity into the
+   *  actual number that governs a given size. */
+  stock_quantity: number | null;
 };
 export type RawProductCard = {
   id: string;
@@ -57,7 +62,15 @@ export function toCardData(product: RawProductCard): ProductCardData {
     defaultSize: defaultSize
       ? { id: defaultSize.id, label: defaultSize.size_label }
       : null,
-    stockQuantity: product.stock_quantity,
+    // Prompt 33: resolved through the DEFAULT size specifically (the one
+    // this card's "Add to Quote" actually adds, since cards have no size
+    // picker) -- not the raw product.stock_quantity. A card with no sizes
+    // at all resolves identically to before (resolveAvailableStock with a
+    // null size input just returns the product-level value, or null).
+    stockQuantity: resolveAvailableStock(
+      product.stock_quantity,
+      defaultSize?.stock_quantity ?? null
+    ),
     moq: product.moq,
   };
 }
@@ -300,10 +313,10 @@ const PRODUCT_DETAIL_SELECT = `
   fragrance_top_notes_en, fragrance_top_notes_ar,
   fragrance_middle_notes_en, fragrance_middle_notes_ar,
   fragrance_base_notes_en, fragrance_base_notes_ar,
-  moq, stock_quantity,
+  moq, stock_quantity, category_id,
   category:categories(name_en, name_ar),
   images:product_images(storage_path, is_primary, sort_order),
-  sizes:product_sizes(id, size_label, sort_order, is_active)
+  sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)
 `;
 
 type RawProductDetail = {
@@ -322,6 +335,10 @@ type RawProductDetail = {
   fragrance_base_notes_ar: string | null;
   moq: number;
   stock_quantity: number | null;
+  /** Plain FK column, distinct from the joined `category` field below
+   *  (which only carries the already-localized name_en/name_ar, Prompt
+   *  75's own getRelatedProducts needs the actual id to filter by). */
+  category_id: string | null;
   category: RawCategory;
   images: { storage_path: string; is_primary: boolean; sort_order: number }[];
   sizes: {
@@ -329,6 +346,7 @@ type RawProductDetail = {
     size_label: string;
     sort_order: number;
     is_active: boolean;
+    stock_quantity: number | null;
   }[];
 };
 
@@ -372,6 +390,7 @@ export async function getProductBySlug(
     categoryName: raw.category
       ? { en: raw.category.name_en, ar: raw.category.name_ar }
       : null,
+    categoryId: raw.category_id,
     images: raw.images
       .slice()
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -388,6 +407,65 @@ export async function getProductBySlug(
         id: s.id,
         sizeLabel: s.size_label,
         sortOrder: s.sort_order,
+        // Prompt 33: each size resolved independently against the SAME
+        // product-level stock_quantity -- this is exactly the "shared
+        // pool" semantics: two sizes with no override of their own both
+        // resolve to the same product-level number here, on purpose.
+        stockQuantity: resolveAvailableStock(
+          raw.stock_quantity,
+          s.stock_quantity
+        ),
       })),
   };
+}
+
+// "You May Also Like" (Prompt 75) -- capped to one full row at this
+// project's own established grid breakpoint (grid-cols-2 md:grid-cols-4,
+// confirmed against ProductsSection.tsx/the category & /products listing
+// pages, Prompts 9/11/25 -- reused here, not a new grid invented for
+// this section), so 4, not a larger "4-8" number that would leave an
+// awkward partial second row on desktop.
+const RELATED_PRODUCTS_LIMIT = 4;
+
+/** Other active products in the SAME category as the product currently
+ *  being viewed, excluding that product itself. Deliberately NOT built
+ *  on top of getCategoryProducts above (which is intentionally
+ *  UNBOUNDED, for the full /categories/[slug] listing page) -- this
+ *  needs its own bounded, excluding query instead, same "don't force an
+ *  unbounded listing function into a capped-preview role" reasoning
+ *  ProductsSection.tsx's own getCategoryTab already established for the
+ *  homepage's tabs.
+ *  categoryId === null (a product with no category assigned) returns []
+ *  immediately without querying -- "related by category" is meaningless
+ *  with no category to relate by, and the product detail page hides the
+ *  whole section when this returns empty (see that page's own comment). */
+export async function getRelatedProducts({
+  categoryId,
+  excludeProductId,
+}: {
+  categoryId: string | null;
+  excludeProductId: string;
+}): Promise<ProductCardData[]> {
+  if (!categoryId) return [];
+
+  // Tagged "categories" + "products", same reasoning as every other
+  // product-reading function in this file (PRODUCT_CARD_SELECT embeds a
+  // category join, and this reads the products table directly) --
+  // reused, not a new tag invented for this one function.
+  const supabase = createPublicClient(REVALIDATE_SECONDS.product, [
+    "categories",
+    "products",
+  ]);
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_CARD_SELECT)
+    .eq("is_active", true)
+    .eq("category_id", categoryId)
+    .neq("id", excludeProductId)
+    .order("sort_order", { ascending: true })
+    .limit(RELATED_PRODUCTS_LIMIT);
+
+  return error || !data
+    ? []
+    : data.map((p) => toCardData(p as unknown as RawProductCard));
 }

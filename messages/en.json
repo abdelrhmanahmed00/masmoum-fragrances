@@ -6,11 +6,20 @@
       "homeFragrance": "Home Fragrance",
       "collections": "Collections",
       "about": "About",
-      "contact": "Contact"
+      "contact": "Contact",
+      "policy": "Policy",
+      "privateLabel": "Private Label"
     },
     "quote": "Quote",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "menuLabel": "Menu",
+    "search": "Search",
+    "searchPlaceholder": "Search products…",
+    "searching": "Searching…",
+    "noResults": "No products found",
+    "switchToEnglish": "Switch to English",
+    "switchToArabic": "Switch to Arabic"
   },
   "Footer": {
     "blurb": "Masmoum Fragrances is a wholesale fragrance manufacturer supplying perfumes, body mist, hair mist, deodorant, roll-on, and home fragrance products to retailers and distributors.",
@@ -26,7 +35,8 @@
   },
   "Hero": {
     "emptyStateTagline": "Your Trusted Partner in Wholesale Fragrances",
-    "slideLabel": "Slide {number}"
+    "slideLabel": "Slide {number}",
+    "shopNow": "Shop Now"
   },
   "Products": {
     "heading": "Our Products",
@@ -56,6 +66,16 @@
     "unmute": "Unmute video",
     "slideLabel": "Video {number}"
   },
+  "Stats": {
+    "heading": "By The Numbers",
+    "subheading": "A snapshot of the craftsmanship and reach behind every Masmoum Fragrances shipment.",
+    "formulationsTitle": "Fragrance Formulations",
+    "formulationsDescription": "A growing catalog of perfumes, body mists, and home fragrance blends developed for wholesale and private-label partners.",
+    "marketsTitle": "Export Markets",
+    "marketsDescription": "Supplying distributors and retailers across a growing international footprint.",
+    "experienceTitle": "Years of Craftsmanship",
+    "experienceDescription": "Manufacturing expertise behind every formulation and every batch."
+  },
   "ProductDetail": {
     "soldOut": "Sold Out",
     "unavailable": "Unavailable",
@@ -68,7 +88,8 @@
     "size": "Size",
     "quantity": "Quantity",
     "decreaseQuantity": "Decrease quantity",
-    "increaseQuantity": "Increase quantity"
+    "increaseQuantity": "Increase quantity",
+    "relatedHeading": "You May Also Like"
   },
   "Quote": {
     "title": "Your Quote",
@@ -111,7 +132,10 @@
     "errorValidation": "Please fix the highlighted fields and try again.",
     "errorItemsInvalid": "Your quote could not be submitted — please review it and try again.",
     "errorRateLimited": "Too many attempts. Please wait a few minutes and try again.",
-    "errorSubmissionFailed": "Something went wrong submitting your request. Please try again."
+    "errorSubmissionFailed": "Something went wrong submitting your request. Please try again.",
+    "errorInsufficientStock": "Your request couldn't be submitted — stock has changed since you added these items:",
+    "insufficientStockItem": "{name} — only {available} available, you requested {requested}.",
+    "insufficientStockSharedNote": "This stock is shared across other sizes of this product that don't have their own separate number."
   },
   "QuoteConfirmation": {
     "heading": "Thank You!",

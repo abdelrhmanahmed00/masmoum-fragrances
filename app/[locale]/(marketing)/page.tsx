@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import Hero from "@/components/home/Hero";
 import ProductsSection from "@/components/home/ProductsSection";
 import VideosSection from "@/components/home/VideosSection";
+import StatsSection from "@/components/home/StatsSection";
 
 // setRequestLocale is required here (not just in the root layout) because
 // this page's subtree (ProductsSection) calls getTranslations. Without it,
@@ -14,8 +15,14 @@ import VideosSection from "@/components/home/VideosSection";
 // locale, not only the layout. See lib/config.ts for why staying static/
 // ISR (not dynamic-per-request) matters here.
 //
-// Videos is the last homepage section per the project plan (Testimonials
-// was cancelled) — the homepage's structural build is complete after this.
+// Prompt 77 briefly inserted a ProductsMarquee (decorative image strip)
+// between ProductsSection and VideosSection; Prompt 78 removed it
+// entirely (client didn't like it visually). Prompt 80 adds StatsSection
+// ("By The Numbers") directly after VideosSection -- HARDCODED content
+// (client explicitly confirmed this is not dashboard-editable, unlike
+// every other section here), so it needs no data-fetching wiring the way
+// ProductsSection/VideosSection do -- the homepage's structural build is
+// complete after this.
 export default async function HomePage({
   params,
 }: PageProps<"/[locale]">) {
@@ -27,6 +34,7 @@ export default async function HomePage({
       <Hero />
       <ProductsSection />
       <VideosSection />
+      <StatsSection />
     </>
   );
 }

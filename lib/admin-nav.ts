@@ -5,11 +5,11 @@ export type AdminSection = {
 };
 
 /**
- * Single source of truth for the 7 admin management areas (Prompt 22),
- * covering every management area from the client's original requirements
- * end to end. Used by both SidebarNav (label + href) and the dashboard
- * home's quick-link cards (label + href + description), so adding,
- * renaming, or reordering a section only ever happens in one place.
+ * Single source of truth for the admin management areas (Prompt 22's
+ * original 7, plus Pages added in Prompt 49). Used by both SidebarNav
+ * (label + href) and the dashboard home's quick-link cards (label + href
+ * + description), so adding, renaming, or reordering a section only ever
+ * happens in one place.
  */
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
@@ -44,6 +44,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/settings",
     label: "Site Settings",
     description: "Contact email, phone, and WhatsApp shown in the Footer.",
+  },
+  {
+    href: "/admin/pages",
+    label: "Pages",
+    description:
+      "Standalone content pages (Policy, Private Label, ...) shown at /pages/<slug>.",
   },
   {
     href: "/admin/quote-requests",

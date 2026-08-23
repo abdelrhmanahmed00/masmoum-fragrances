@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
+import { trimmedOrNull } from "@/lib/form-utils";
+import { UNIQUE_VIOLATION } from "@/lib/admin/shared";
 import type {
   CollectionActionState,
   CollectionFieldErrors,
@@ -13,14 +15,6 @@ import type {
 // repeated here.
 //
 // delete is the one genuinely different function -- see its own comment.
-
-const UNIQUE_VIOLATION = "23505";
-
-function trimmedOrNull(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 type CollectionInput = {
   name_en: string;

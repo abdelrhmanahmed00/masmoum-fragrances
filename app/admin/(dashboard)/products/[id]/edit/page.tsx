@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSessionClient } from "@/lib/supabase/server";
 import { getCategoryOptions } from "@/lib/admin/products";
+import { getProductSizes } from "@/lib/admin/product-sizes";
+import { getProductImages } from "@/lib/admin/product-images";
 import ProductForm from "@/components/admin/ProductForm";
+import ProductSizesSection from "@/components/admin/ProductSizesSection";
+import ProductImagesSection from "@/components/admin/ProductImagesSection";
 import type { AdminProductRow } from "@/types/admin-product";
 
 export const metadata: Metadata = {
@@ -23,9 +27,11 @@ export default async function AdminEditProductPage({
   const { id } = await params;
 
   const supabase = await createSessionClient();
-  const [{ data, error }, categories] = await Promise.all([
+  const [{ data, error }, categories, sizes, images] = await Promise.all([
     supabase.from("products").select(PRODUCT_COLUMNS).eq("id", id).maybeSingle(),
     getCategoryOptions(supabase),
+    getProductSizes(supabase, id),
+    getProductImages(supabase, id),
   ]);
 
   if (error || !data) notFound();
@@ -37,6 +43,12 @@ export default async function AdminEditProductPage({
       <h1 className="text-xl font-semibold text-brand-black">Edit Product</h1>
       <div className="mt-6">
         <ProductForm mode="edit" product={product} categories={categories} />
+        <ProductSizesSection
+          productId={product.id}
+          sizes={sizes}
+          productStockQuantity={product.stock_quantity}
+        />
+        <ProductImagesSection productId={product.id} images={images} />
       </div>
     </div>
   );

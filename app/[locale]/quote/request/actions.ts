@@ -1,7 +1,11 @@
 "use server";
 
 import { headers } from "next/headers";
+import { updateTag } from "next/cache";
+import { after } from "next/server";
 import { processQuoteRequestSubmission } from "@/lib/quote-request-submission";
+import { sendMetaLeadEvent } from "@/lib/meta-conversions-api";
+import { trimmedOrNull } from "@/lib/form-utils";
 import type {
   QuoteRequestActionState,
   QuoteSubmissionItem,
@@ -61,5 +65,73 @@ export async function submitQuoteRequest(
   formData: FormData
 ): Promise<QuoteRequestActionState> {
   const clientIp = await getClientIp();
-  return processQuoteRequestSubmission(items, formData, clientIp);
+  const result = await processQuoteRequestSubmission(items, formData, clientIp);
+
+  // Prompt 30: a successful submission may have decremented stock_quantity
+  // (submit_quote_request RPC, 0016 migration) -- updateTag, not
+  // revalidateTag, matching the established convention (see e.g.
+  // app/admin/(dashboard)/products/actions.ts's own comment for why) so
+  // the public catalog's Sold Out state is guaranteed current on the very
+  // next request rather than eventually-consistent. This is the ONLY
+  // place that needs to change for revalidation -- updateTag must run
+  // inside a real Server Action (confirmed in Prompt 23), and this thin
+  // "use server" wrapper is exactly that; the plain lib function it calls
+  // is not. Called unconditionally on success rather than only when an
+  // item's stock happened to hit 0 -- unlimited-stock-only submissions
+  // make this a harmless no-op revalidation, and not every caller needs
+  // to reason about which case it was.
+  if (result.status === "success") {
+    updateTag("products");
+
+    // Prompt 47: server-side Meta Lead event, fired via next/server's
+    // after() -- scheduled to run once the response has already been
+    // sent to the browser, so a slow (or entirely down) Meta API can
+    // never add latency to the user-facing submission, and a thrown
+    // error inside it can never turn an already-successful submission
+    // into a failed response (sendMetaLeadEvent itself also never
+    // throws -- both layers are deliberate, not redundant: after() keeps
+    // this off the response's critical path, sendMetaLeadEvent's own
+    // try/catch keeps a Meta-side failure from becoming an unhandled
+    // rejection in that background task).
+    //
+    // Request data (headers()) is read HERE, before after(), not inside
+    // the after() callback -- Server Functions technically allow
+    // headers()/cookies() directly inside after() too, but reading it
+    // during the action's own execution and passing plain values in via
+    // closure is the pattern Next's own docs demonstrate first, and
+    // keeps this correct regardless of exactly which context rules apply
+    // where.
+    //
+    // email/phoneWhatsapp are re-read directly from the SAME formData
+    // already validated inside processQuoteRequestSubmission, rather
+    // than plumbing them through that function's return type -- keeps
+    // this entirely additive, zero changes to the well-tested existing
+    // submission logic or its return shape.
+    const metaEventId = trimmedOrNull(formData.get("metaEventId"));
+    const email = trimmedOrNull(formData.get("email"));
+    const phoneWhatsapp = trimmedOrNull(formData.get("phoneWhatsapp"));
+
+    if (metaEventId && email && phoneWhatsapp) {
+      const h = await headers();
+      const userAgent = h.get("user-agent") ?? "";
+      // Same-page Server Action POST -- the browser's own Referer header
+      // reliably carries the exact page URL the form was submitted from,
+      // which is what event_source_url documents wanting ("the browser
+      // URL where the conversion event happened").
+      const eventSourceUrl = h.get("referer") ?? h.get("origin") ?? "";
+
+      after(() => {
+        void sendMetaLeadEvent({
+          eventId: metaEventId,
+          email,
+          phone: phoneWhatsapp,
+          clientIp,
+          userAgent,
+          eventSourceUrl,
+        });
+      });
+    }
+  }
+
+  return result;
 }

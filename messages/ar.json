@@ -6,11 +6,20 @@
       "homeFragrance": "معطر المنزل",
       "collections": "التشكيلات",
       "about": "من نحن",
-      "contact": "تواصل معنا"
+      "contact": "تواصل معنا",
+      "policy": "السياسة",
+      "privateLabel": "العلامة الخاصة"
     },
     "quote": "عرض السعر",
     "openMenu": "فتح القائمة",
-    "closeMenu": "إغلاق القائمة"
+    "closeMenu": "إغلاق القائمة",
+    "menuLabel": "القائمة",
+    "search": "بحث",
+    "searchPlaceholder": "ابحث عن المنتجات…",
+    "searching": "جارٍ البحث…",
+    "noResults": "لا توجد منتجات مطابقة",
+    "switchToEnglish": "التبديل إلى الإنجليزية",
+    "switchToArabic": "التبديل إلى العربية"
   },
   "Footer": {
     "blurb": "مسموم للعطور شركة تصنيع عطور بالجملة، توفر العطور وبادي ميست وهير ميست ومزيل التعرق ورول أون ومعطرات المنزل لتجار التجزئة والموزعين.",
@@ -26,7 +35,8 @@
   },
   "Hero": {
     "emptyStateTagline": "شريكك الموثوق في عطور الجملة",
-    "slideLabel": "الشريحة {number}"
+    "slideLabel": "الشريحة {number}",
+    "shopNow": "تسوق الآن"
   },
   "Products": {
     "heading": "منتجاتنا",
@@ -56,6 +66,16 @@
     "unmute": "تشغيل الصوت",
     "slideLabel": "فيديو {number}"
   },
+  "Stats": {
+    "heading": "بالأرقام",
+    "subheading": "لمحة عن الحرفية والانتشار وراء كل شحنة من مسموم للعطور.",
+    "formulationsTitle": "تركيبة عطرية",
+    "formulationsDescription": "كتالوج متنامٍ من العطور وبادي ميست ومعطرات المنزل، مطوَّرة لشركاء الجملة والعلامات الخاصة.",
+    "marketsTitle": "سوق تصدير",
+    "marketsDescription": "توريد الموزعين وتجار التجزئة عبر انتشار دولي متنامٍ.",
+    "experienceTitle": "سنوات من الحرفية",
+    "experienceDescription": "خبرة تصنيع وراء كل تركيبة وكل دفعة إنتاج."
+  },
   "ProductDetail": {
     "soldOut": "نفدت الكمية",
     "unavailable": "غير متوفر",
@@ -68,7 +88,8 @@
     "size": "الحجم",
     "quantity": "الكمية",
     "decreaseQuantity": "إنقاص الكمية",
-    "increaseQuantity": "زيادة الكمية"
+    "increaseQuantity": "زيادة الكمية",
+    "relatedHeading": "قد يعجبك أيضًا"
   },
   "Quote": {
     "title": "عرض السعر الخاص بك",
@@ -111,7 +132,10 @@
     "errorValidation": "يرجى تصحيح الحقول المحددة والمحاولة مرة أخرى.",
     "errorItemsInvalid": "تعذّر إرسال عرض السعر — يرجى مراجعته والمحاولة مرة أخرى.",
     "errorRateLimited": "محاولات كثيرة جدًا. يرجى الانتظار بضع دقائق ثم المحاولة مرة أخرى.",
-    "errorSubmissionFailed": "حدث خطأ أثناء إرسال طلبك. يرجى المحاولة مرة أخرى."
+    "errorSubmissionFailed": "حدث خطأ أثناء إرسال طلبك. يرجى المحاولة مرة أخرى.",
+    "errorInsufficientStock": "تعذّر إرسال طلبك — تغيّرت الكمية المتوفرة منذ أن أضفت هذه العناصر:",
+    "insufficientStockItem": "{name} — المتوفر {available} فقط، وطلبت {requested}.",
+    "insufficientStockSharedNote": "هذه الكمية مشتركة مع أحجام أخرى من هذا المنتج ليس لها رقم مستقل خاص بها."
   },
   "QuoteConfirmation": {
     "heading": "شكرًا لك!",

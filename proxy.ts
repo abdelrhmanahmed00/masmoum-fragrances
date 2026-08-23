@@ -54,10 +54,36 @@ function securityHeaders(): Record<string, string> {
     // lib/config.ts). 'unsafe-inline' does weaken this directive
     // specifically against inline-script injection; every other
     // directive below is unaffected and still fully enforced.
-    scriptSrc,
+    // Prompt 47: Meta Pixel needs exactly two additional hosts, added
+    // deliberately narrow -- researched systematically (see the Prompt 47
+    // report's cited sources), not guessed or wildcarded:
+    //   - script-src: connect.facebook.net -- the ONLY host the pixel's
+    //     JS library (fbevents.js) itself loads from.
+    //   - img-src + connect-src: www.facebook.com -- where the loaded
+    //     script actually sends event data (the /tr endpoint), both via
+    //     the <noscript> <img> fallback (img-src) and via the JS SDK's
+    //     own fetch/XHR-based event calls once loaded (connect-src).
+    // graph.facebook.com (the Conversions API endpoint) is deliberately
+    // NOT here -- that's a server-to-server call from
+    // lib/meta-conversions-api.ts, never issued by the browser, so it's
+    // outside what any CSP directive governs.
+    scriptSrc + " https://connect.facebook.net",
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: https://${supabaseHostname}`,
-    `connect-src 'self' https://${supabaseHostname}`,
+    `img-src 'self' data: blob: https://${supabaseHostname} https://www.facebook.com`,
+    // Prompt 40 bug fix: media-src governs <video>/<audio> `src` loading
+    // and was missing entirely -- per the CSP spec it falls back to
+    // default-src ('self' only) when absent, which silently blocks any
+    // <video src="https://<supabase-host>/..."> load in every real
+    // browser (confirmed root cause of the "empty outline, no content"
+    // report -- curl/fetch aren't CSP-governed, so the URL, file, and
+    // markup all checked out fine while a real browser still blocked it).
+    // img-src/connect-src were already scoped to the Supabase hostname
+    // for the same reason (images, Supabase JS client fetches) -- this
+    // was a real gap, not a deliberate omission: no video content existed
+    // at all until Prompt 37, which added real <video> playback but never
+    // revisited this CSP (set up earlier, before videos were a concern).
+    `media-src 'self' https://${supabaseHostname}`,
+    `connect-src 'self' https://${supabaseHostname} https://www.facebook.com`,
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

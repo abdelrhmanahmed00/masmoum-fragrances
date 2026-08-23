@@ -12,7 +12,13 @@ export type ProductCardData = {
   /** null = unlimited/always available (no badge, no restriction). A
    *  number = real stock; 0 = sold out (Prompt 28). Never rendered as
    *  the raw number publicly -- see ProductCard's own comment for why
-   *  only a binary available/sold-out signal is shown. */
+   *  only a binary available/sold-out signal is shown.
+   *  Prompt 33: already RESOLVED through the DEFAULT size specifically
+   *  (lib/catalog.ts's toCardData, via lib/stock.ts's
+   *  resolveAvailableStock) -- not the product's raw stock_quantity. A
+   *  card has no size picker, so this is the one number that determines
+   *  whether "Add to Quote" (which adds the default size) is even
+   *  possible. */
   stockQuantity: number | null;
   /** Added in Prompt 29 -- needed alongside stockQuantity to detect the
    *  "MOQ exceeds available stock" edge case (e.g. MOQ 10, stock 3: no

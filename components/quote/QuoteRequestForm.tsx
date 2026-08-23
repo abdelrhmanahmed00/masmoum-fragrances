@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useQuote } from "./QuoteProvider";
 import { submitQuoteRequest } from "@/app/[locale]/quote/request/actions";
+import { trackMetaEvent } from "@/lib/meta-pixel-client";
 import {
   BUSINESS_TYPES,
   QUOTE_REQUEST_INITIAL_STATE,
@@ -37,6 +38,7 @@ import {
 //    success -> client clears its own state -> client navigates.
 export default function QuoteRequestForm() {
   const t = useTranslations("QuoteRequest");
+  const locale = useLocale();
   const router = useRouter();
   const { items, totalItems, totalQuantity, isHydrated, clearQuote } =
     useQuote();
@@ -61,6 +63,22 @@ export default function QuoteRequestForm() {
     QUOTE_REQUEST_INITIAL_STATE
   );
 
+  // Prompt 47: one stable ID per mount of this form, shared between the
+  // client-side pixel's Lead call (below, fired only on success) and the
+  // server-side Conversions API's mirror of that same event (the hidden
+  // input further down submits this same value as part of formData ->
+  // app/[locale]/quote/request/actions.ts reads it back out and passes it
+  // to sendMetaLeadEvent) -- this is the entire mechanism Meta's
+  // documented deduplication relies on: same event_name + event_id from
+  // both Pixel and CAPI. Generated once via useState's lazy initializer,
+  // not regenerated per render/retry -- a failed submit attempt (a
+  // validation error, insufficient stock) never actually fires either
+  // side, so there's nothing to deduplicate for those attempts regardless
+  // of whether the id is "reused"; a genuinely new attempt only happens
+  // on a fresh mount of this form (e.g. navigating back), which
+  // naturally gets its own fresh id.
+  const [metaEventId] = useState(() => crypto.randomUUID());
+
   useEffect(() => {
     if (isHydrated && items.length === 0 && state.status !== "success") {
       router.replace("/quote");
@@ -69,10 +87,17 @@ export default function QuoteRequestForm() {
 
   useEffect(() => {
     if (state.status === "success") {
+      // Client-side half of the Lead event -- fired with the SAME
+      // event_id the server-side CAPI call (actions.ts) uses for its own
+      // mirror of this exact submission, for Meta's deduplication. No
+      // value/currency params, same reasoning as AddToCart
+      // (AddToQuoteButton.tsx) -- this site never shows pricing, and
+      // Meta doesn't require them outside the Purchase event.
+      trackMetaEvent("Lead", {}, metaEventId);
       clearQuote();
       router.replace("/quote/confirmed");
     }
-  }, [state.status, clearQuote, router]);
+  }, [state.status, clearQuote, router, metaEventId]);
 
   // Nothing meaningful to show before hydration, for an empty quote (the
   // effect above is about to redirect away), or right after a successful
@@ -82,8 +107,12 @@ export default function QuoteRequestForm() {
   }
 
   const fieldErrors = state.status === "error" ? state.fieldErrors : undefined;
+  const insufficientStockProducts =
+    state.status === "error" && state.code === "insufficientStock"
+      ? state.insufficientStockProducts
+      : undefined;
   const topLevelErrorKey =
-    state.status === "error"
+    state.status === "error" && state.code !== "insufficientStock"
       ? state.code === "validation"
         ? "errorValidation"
         : state.code === "itemsInvalid"
@@ -127,17 +156,93 @@ export default function QuoteRequestForm() {
         </div>
       ) : null}
 
+      {/* Prompt 30: distinct from the other top-level errors above -- this
+          one needs to list which specific product(s) the submit_quote_request
+          RPC rejected and why, not just a single fixed sentence. The
+          client-side stepper cap (Prompt 29) is only a same-session
+          snapshot, so a buyer legitimately can hit this on a normal retry
+          (e.g. someone else's submission or an admin edit lowered stock in
+          between) -- this isn't a "shouldn't happen" state. */}
+      {insufficientStockProducts && insufficientStockProducts.length > 0 ? (
+        <div
+          role="alert"
+          className="mt-6 rounded-btn border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <p>{t("errorInsufficientStock")}</p>
+          <ul className="mt-2 list-inside list-disc">
+            {insufficientStockProducts.map((product) => {
+              const baseName =
+                locale === "ar" ? product.nameAr : product.nameEn;
+              // Prompt 33: append the size in parentheses when one was
+              // requested, regardless of which pool (size or product)
+              // actually ran out -- the buyer picked a size, so the
+              // message should say which one even when the shortage
+              // turned out to be the shared product-level pool, not that
+              // specific size's own number.
+              const displayName = product.sizeLabel
+                ? `${baseName} (${product.sizeLabel})`
+                : baseName;
+              return (
+                <li key={`${product.productId}-${product.productSizeId ?? "none"}`}>
+                  {t("insufficientStockItem", {
+                    name: displayName,
+                    available: product.available,
+                    requested: product.requested,
+                  })}
+                  {product.pool === "product" ? (
+                    <span className="block text-xs text-red-600">
+                      {t("insufficientStockSharedNote")}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       <form action={formAction} className="mt-6 space-y-5">
-        {/* Honeypot: invisible to real visitors (off-screen, aria-hidden,
-            out of tab order) but present in the DOM for a naive bot that
-            fills every input to fill in. See actions.ts's own comment for
-            what happens server-side when this is non-empty. */}
-        <div className="absolute -start-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
-          <label htmlFor="companyWebsite">Website</label>
+        {/* Prompt 47: carries the same id the client-side Lead pixel call
+            (above) will use, into the server action's formData -- see
+            this file's own comment on metaEventId's useState for the
+            full deduplication design. Plain hidden field, not sensitive
+            data -- just an opaque, per-submission-attempt UUID. */}
+        <input type="hidden" name="metaEventId" value={metaEventId} />
+
+        {/* Honeypot: invisible to real visitors but present in the DOM for
+            a naive bot that fills every input to fill in. See
+            lib/quote-request-submission.ts's own comment for what happens
+            server-side when this is non-empty.
+            Prompt 31 fix: a real client's genuine submissions were being
+            silently absorbed as fake bot-deflection "successes" (redirect
+            shown, but nothing written -- no quote_requests row, no stock
+            decrement) with zero DB footprint, repeatably. Root cause: this
+            field used to be named "companyWebsite" / labeled "Website" and
+            hidden purely via off-screen absolute positioning -- exactly
+            the combination a legitimate browser autofill / form-fill tool
+            is most likely to target (a "Website" field reads as a real
+            company-info field to autofill heuristics, and off-screen
+            positioning is a common technique for content that's still
+            meant to be present, e.g. screen-reader-only text, so many
+            autofill tools don't skip it the way they skip
+            display:none/visibility:hidden). Fixed two ways: (1) hidden via
+            `hidden` (display: none) instead of off-screen positioning --
+            no accessibility regression, aria-hidden already excluded it
+            from the a11y tree, but display:none IS the signal autofill
+            tools actually check before filling; (2) renamed away from any
+            recognizable field semantics ("Website"/company info) to a
+            nonsense name/label a bot filling every input still catches,
+            but no autofill heuristic has a reason to target. A false
+            positive here silently drops a real B2B sales lead with no
+            visible error -- a far worse failure mode than the honeypot
+            occasionally missing a naive bot, so this tradeoff is
+            deliberately biased toward never catching a real buyer. */}
+        <div className="hidden" aria-hidden="true">
+          <label htmlFor="mf-hp-2x9">Do not fill this in</label>
           <input
             type="text"
-            id="companyWebsite"
-            name="companyWebsite"
+            id="mf-hp-2x9"
+            name="mf-hp-2x9"
             tabIndex={-1}
             autoComplete="off"
           />
