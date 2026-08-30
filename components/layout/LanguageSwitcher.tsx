@@ -72,24 +72,25 @@ export default function LanguageSwitcher() {
       aria-label={
         otherLocale === "ar" ? t("switchToArabic") : t("switchToEnglish")
       }
-      // Prompt 79: color-role inversion again, the exact reverse of
-      // Prompt 67, following the header bar's flip back to
-      // bg-brand-black. Border border-brand-black/60 -> border-brand-gold/60
-      // -- a border has no competing "base text is already this color"
-      // conflict, so it inverts cleanly: gold reads clearly against the
-      // new black bar, same as black did against the gold one. Text
-      // text-brand-black -> text-brand-gold (this component's base text
-      // color, real contrast math on HeaderClient.tsx's own top comment
-      // -- reused, not re-derived, since gold-on-black is the same
-      // symmetric 11.1:1 as black-on-gold). Hover: still no text-color
-      // change (same reasoning as before, just mirrored -- a hover text
-      // color would either collide with the new base or need a shade
-      // that tests poorly, so the border alone keeps carrying the hover
-      // signal): border-brand-gold/60 -> hover:border-brand-gold
-      // (brightens to full). Deliberately still WITHOUT Quote's heavier
-      // hover invert-to-solid-fill -- this remains the quieter,
-      // secondary-utility treatment it's always been.
-      className="rounded-full border border-brand-gold/60 px-3 py-1 text-xs font-semibold tracking-wide text-brand-gold uppercase transition-colors hover:border-brand-gold"
+      // Prompt 108: back to the pre-107 black-bar pairing. Border
+      // border-brand-black/60 -> border-brand-gold/60 -- checked
+      // properly (not linearly scaled): gold at 60% opacity over black
+      // = effective rgb(132,109,82), luminance 0.165, contrast vs.
+      // black = 4.30:1, clearing the 3:1 non-text/border floor (matches
+      // HeaderClient.tsx's own Quote-pill-border math for the identical
+      // blend). Text text-brand-black -> text-brand-gold (this
+      // component's base text color; 11.1:1 against black, real math on
+      // HeaderClient.tsx's own top comment). Hover: still no text-color
+      // change (same reasoning as always -- a hover text color would
+      // either collide with the new base or need a shade that tests
+      // poorly, so the border alone keeps carrying the hover signal):
+      // border-brand-gold/60 -> hover:border-brand-gold (brightens to
+      // full). Deliberately still WITHOUT Quote's heavier hover
+      // invert-to-solid-fill -- this remains the quieter, secondary-
+      // utility treatment it's always been.
+      // Sizing UNCHANGED from Prompt 107 (out of this prompt's scope):
+      // mobile-only px-2 (lg:px-3) stays exactly as Prompt 107 left it.
+      className="rounded-full border border-brand-gold/60 px-2 py-1 text-xs font-semibold tracking-wide text-brand-gold uppercase transition-colors hover:border-brand-gold lg:px-3"
     >
       {locale}
     </button>

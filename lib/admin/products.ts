@@ -4,6 +4,7 @@ import { slugify, SLUG_PATTERN } from "@/lib/slugify";
 import { trimmedOrNull } from "@/lib/form-utils";
 import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
 import type {
+  BrandOption,
   CategoryOption,
   ProductActionState,
   ProductFieldErrors,
@@ -32,6 +33,10 @@ type ProductInput = {
   name_ar: string;
   slug: string;
   category_id: string;
+  /** Prompt 86 (Phase A) -- optional, unlike category_id: an empty
+   *  selection is a valid "no brand assigned" state, not a validation
+   *  error. */
+  brand_id: string | null;
   gender: ProductGenderValue;
   description_en: string;
   description_ar: string;
@@ -59,6 +64,10 @@ function validate(formData: FormData): {
   const name_ar = trimmedOrNull(formData.get("name_ar"));
   const slugRaw = trimmedOrNull(formData.get("slug"));
   const category_id = trimmedOrNull(formData.get("category_id"));
+  // Optional (Prompt 86, Phase A) -- the form's <select> has a blank
+  // "— None —" option (value=""), which trimmedOrNull already turns into
+  // null, same as every other optional field in this file.
+  const brand_id = trimmedOrNull(formData.get("brand_id"));
   const genderRaw = trimmedOrNull(formData.get("gender"));
   // description_en/ar: required at the APPLICATION layer per this
   // prompt's own spec, even though the DB columns themselves are
@@ -161,6 +170,7 @@ function validate(formData: FormData): {
       name_ar,
       slug,
       category_id,
+      brand_id,
       gender,
       description_en,
       description_ar,
@@ -215,6 +225,21 @@ export async function createProduct(
       };
     }
     if (error.code === FK_VIOLATION) {
+      // Two possible FK columns can now fail this way (category_id,
+      // brand_id, both added/changed across separate prompts) --
+      // Postgres's own error message names the failed constraint (e.g.
+      // "...violates foreign key constraint \"products_brand_id_fkey\""),
+      // which is the only way to tell which one without a second query.
+      // Defaults to the category_id message if the constraint name isn't
+      // recognized (matches this function's own pre-Prompt-86 behavior,
+      // when category_id was the only FK that could ever fail here).
+      if (error.message?.includes("brand_id")) {
+        return {
+          status: "error",
+          message: "Selected brand no longer exists. Please choose another.",
+          fieldErrors: { brand_id: "Choose a valid brand." },
+        };
+      }
       return {
         status: "error",
         message: "Selected category no longer exists. Please choose another.",
@@ -258,6 +283,21 @@ export async function updateProduct(
       };
     }
     if (error.code === FK_VIOLATION) {
+      // Two possible FK columns can now fail this way (category_id,
+      // brand_id, both added/changed across separate prompts) --
+      // Postgres's own error message names the failed constraint (e.g.
+      // "...violates foreign key constraint \"products_brand_id_fkey\""),
+      // which is the only way to tell which one without a second query.
+      // Defaults to the category_id message if the constraint name isn't
+      // recognized (matches this function's own pre-Prompt-86 behavior,
+      // when category_id was the only FK that could ever fail here).
+      if (error.message?.includes("brand_id")) {
+        return {
+          status: "error",
+          message: "Selected brand no longer exists. Please choose another.",
+          fieldErrors: { brand_id: "Choose a valid brand." },
+        };
+      }
       return {
         status: "error",
         message: "Selected category no longer exists. Please choose another.",
@@ -411,6 +451,25 @@ export async function getCategoryOptions(
 ): Promise<CategoryOption[]> {
   const { data, error } = await supabase
     .from("categories")
+    .select("id, name_en, name_ar, is_active")
+    .order("sort_order", { ascending: true });
+
+  return error || !data ? [] : data;
+}
+
+/**
+ * Brand options for the product form's optional brand_id <select>
+ * (Prompt 86, Phase A). Same shape and same "include inactive, mark
+ * them" reasoning as getCategoryOptions above -- even though brand_id is
+ * nullable (unlike category_id), an admin editing a product whose brand
+ * was since deactivated should still see which brand is actually
+ * assigned, not have it silently vanish from the list.
+ */
+export async function getBrandOptions(
+  supabase: SupabaseClient
+): Promise<BrandOption[]> {
+  const { data, error } = await supabase
+    .from("brands")
     .select("id, name_en, name_ar, is_active")
     .order("sort_order", { ascending: true });
 

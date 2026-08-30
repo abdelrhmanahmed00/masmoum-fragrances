@@ -1,6 +1,11 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import ProductCard from "@/components/product/ProductCard";
-import { getAllActiveProducts } from "@/lib/catalog";
+import FilterGroup from "@/components/product/FilterGroup";
+import {
+  getAllActiveProducts,
+  getBrandBySlug,
+  getBrandsWithActiveProducts,
+} from "@/lib/catalog";
 
 // Sibling to app/[locale]/(marketing)/products/[slug]/page.tsx -- a static
 // segment (this file) and a dynamic segment ([slug]) coexisting under the
@@ -9,13 +14,14 @@ import { getAllActiveProducts } from "@/lib/catalog";
 // URL, [slug] only ever matches anything else under /products/*. Confirmed
 // by the build output (see the Prompt 25 report), not just assumed.
 //
-// Same ISR/no-filters reasoning as /collections/[slug] (see that page's own
-// comment): no searchParams read, so this stays a plain static/ISR page.
-// No gender/collection filters here either, for the same reason the
-// collections page has none -- this project's filter design is asymmetric
-// (gender + collection filters live on category pages only, per Prompt 9's
-// original decision); this page is the unfiltered baseline view, matching
-// exactly what the homepage's own capped "All" tab shows, just uncapped.
+// Prompt 87 (Phase B) supersedes this file's own former "no searchParams,
+// stays static" comment: gender/collection filters are still deliberately
+// absent here (that asymmetry -- filters live on category pages only --
+// was Prompt 9's own decision and is untouched), but a BRAND filter is
+// now added, per this prompt's explicit task. See the searchParams read
+// below for what that does to this route's rendering strategy, and this
+// file's own revalidate comment for why the underlying data fetch stays
+// ISR-cached regardless.
 //
 // Literal 3600, not an import -- route segment config exports must be
 // static literals (see the category page's comment, Prompt 11, for the
@@ -24,12 +30,39 @@ export const revalidate = 3600;
 
 export default async function AllProductsPage({
   params,
+  searchParams,
 }: PageProps<"/[locale]/products">) {
   const { locale } = await params;
   setRequestLocale(locale);
+  // Prompt 87: reading searchParams here is what actually changes this
+  // route's rendering strategy from ● (SSG) to ƒ (Dynamic) -- confirmed
+  // via a real build, not assumed. Next.js can't statically pre-render a
+  // page whose output depends on an arbitrary query string (no PPR/
+  // cacheComponents enabled in this project, see next.config.ts) -- the
+  // exact same mechanism, and the exact same tradeoff, already accepted
+  // for /categories/[slug] the moment its own gender/collection filters
+  // were added (Prompt 24's own precedent). The underlying Supabase reads
+  // below still go through createPublicClient's revalidate-tagged fetch
+  // (REVALIDATE_SECONDS.category, "brands"/"categories"/"products" tags),
+  // so repeated requests for the SAME filter combination are still served
+  // from Next's Data Cache rather than hitting Supabase again -- only the
+  // page's own HTML render moved from build-time to request-time, not the
+  // data layer's own caching.
+  const sp = await searchParams;
 
   const t = await getTranslations("Products");
-  const products = await getAllActiveProducts();
+
+  const brandParam = typeof sp.brand === "string" ? sp.brand : undefined;
+  const [selectedBrand, brands] = await Promise.all([
+    brandParam ? getBrandBySlug(brandParam) : Promise.resolve(null),
+    getBrandsWithActiveProducts(),
+  ]);
+
+  const products = await getAllActiveProducts({
+    brandId: selectedBrand?.id ?? null,
+  });
+
+  const hasFilters = Boolean(selectedBrand);
 
   return (
     // Prompt 57 split this into pb-12/pt-header-offset/md:pb-16 to clear
@@ -45,9 +78,35 @@ export default async function AllProductsPage({
         {t("allProductsHeading")}
       </h1>
 
+      {/* Prompt 87 -- only rendered when there's at least one real filter
+          option, same "don't show an empty/pointless filter row" pattern
+          the category page already uses for its own gender/collection
+          groups. `variant="pill"` reuses ProductTabs.tsx's Prompt 61
+          bordered-pill look (see FilterGroup.tsx's own comment for why),
+          not this component's original "filled" look -- deliberately
+          different from the category page's gender/collection filters,
+          which keep their existing appearance untouched. */}
+      {brands.length > 0 ? (
+        <div className="mb-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+          <FilterGroup
+            label={t("brandLabel")}
+            allLabel={t("allBrands")}
+            basePath="/products"
+            paramKey="brand"
+            currentValue={brandParam}
+            options={brands.map((brand) => ({
+              value: brand.slug,
+              label: locale === "ar" ? brand.name_ar : brand.name_en,
+            }))}
+            preserveParams={{}}
+            variant="pill"
+          />
+        </div>
+      ) : null}
+
       {products.length === 0 ? (
         <div className="py-16 text-center text-brand-gray">
-          <p>{t("emptyState")}</p>
+          <p>{hasFilters ? t("noFilterResults") : t("emptyState")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -67,6 +126,13 @@ export default async function AllProductsPage({
                   : null
               }
               categoryName={product.categoryName}
+              brandLabel={
+                product.brandName
+                  ? locale === "ar"
+                    ? product.brandName.ar
+                    : product.brandName.en
+                  : null
+              }
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
               stockQuantity={product.stockQuantity}

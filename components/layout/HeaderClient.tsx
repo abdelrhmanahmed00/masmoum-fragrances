@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useQuote } from "@/components/quote/QuoteProvider";
 import HeaderSearch from "./HeaderSearch";
 import LanguageSwitcher from "./LanguageSwitcher";
+import ChevronIcon from "./ChevronIcon";
 import type { CategoryRow } from "@/lib/catalog";
 
 // Brand wordmark — a proper noun, so it stays as-is in both locales rather
@@ -15,23 +16,6 @@ import type { CategoryRow } from "@/lib/catalog";
 // -- this text wordmark is the header's only brand mark for now. The
 // logo file itself is still on disk, just not referenced here.
 const BRAND_NAME = "MASMOUM FRAGRANCES";
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={
-        "h-4 w-4 shrink-0 transition-transform duration-200 " +
-        (open ? "rotate-180" : "")
-      }
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
 
 // Prompt 70 -- hide the header on scroll down, show it on scroll up.
 // Researched before implementing (see the Prompt 70 report's cited
@@ -301,6 +285,20 @@ export default function HeaderClient({
     // effect on the drawer's actual visual position/z-index under normal
     // (non-buggy) circumstances, it just removes the one ancestor that was
     // wrongly claiming that role.
+    //
+    // Prompt 107 -- THIRD bar-color flip (67 gold, 79 black, 107 white),
+    // plus real mobile-sizing/wrap fixes. Prompt 108 -- FOURTH flip,
+    // back to black+gold (the client tried white and didn't like it):
+    // color-only revert, back to the exact Prompt 79 gold-on-black
+    // pairing (real math re-cited below per element, not re-derived --
+    // the token values haven't changed since Prompt 79 first computed
+    // them). Every one of Prompt 107's real mobile-sizing/wrap-fix
+    // measurements (mobile icon/gap/padding/wordmark/pill sizes, the
+    // "Quote" text hidden below `sm`, the recomputed globals.css header-
+    // offset values) stays EXACTLY as Prompt 107 left it -- this prompt
+    // touches background/text/border/hover colors only, per its own
+    // explicit scope. Hide-on-scroll (Prompt 70) and the containing-
+    // block fix above are unrelated, unchanged.
     <>
       <header
         className={
@@ -308,12 +306,19 @@ export default function HeaderClient({
           (isHeaderVisible ? "translate-y-0" : "-translate-y-full")
         }
       >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        {/* Mobile: hamburger (hidden on desktop). text-brand-black ->
-            text-brand-gold (base text/icon color, real contrast math on
-            this component's top comment). No hover state exists here
-            (tap-only on mobile), so no hover-inversion question to work
-            through for this one element. */}
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:gap-4 lg:px-8 lg:py-4">
+        {/* Mobile: hamburger (hidden on desktop). Prompt 108: back to
+            text-brand-gold -- the bar is black again, and gold-on-black
+            is the same real 11.1:1 AAA pairing Prompt 79 originally
+            computed (brand-gold #dcb689 luminance 0.505, brand-black
+            luminance 0, ratio (0.505+0.05)/(0+0.05) = 11.1:1, symmetric
+            regardless of fg/bg role). Every header text/icon color below
+            makes this same reversion for the same reason (cited once
+            here, not repeated per element). No hover state exists here
+            (tap-only on mobile).
+            Sizing UNCHANGED from Prompt 107 (out of this prompt's
+            scope): icon h-5 w-5, p-2 padding -- both stay exactly as
+            Prompt 107 left them. */}
         <button
           type="button"
           className="-ms-2 p-2 text-brand-gold lg:hidden"
@@ -322,23 +327,24 @@ export default function HeaderClient({
           onClick={() => setIsMenuOpen(true)}
         >
           <span className="sr-only">{t("openMenu")}</span>
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2}>
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" d="M3 6h18M3 12h18M3 18h18" />
           </svg>
         </button>
 
         {/* Text wordmark -- unchanged position (start/left), still links
-            home. text-brand-black -> text-brand-gold: the client
-            explicitly wants the wordmark in gold this time (not just a
-            mechanical consequence of the base-color swap elsewhere in
-            this header). No drop-shadow needed (that was Prompt 65's
-            answer to a DIFFERENT problem, a wordmark with literally no
-            backing at all; this one still sits on a solid, opaque bar,
-            just black again now). No hover state existed before either,
-            so nothing to invert here beyond the base color. */}
+            home. Prompt 108: back to text-brand-gold (11.1:1 against the
+            black bar, same math as the hamburger above). No hover state
+            existed before either, so nothing to invert here beyond the
+            base color.
+            Sizing UNCHANGED from Prompt 107 (out of this prompt's
+            scope): mobile-only text-sm + tracking-tight (vs. desktop's
+            text-base + tracking-wide) stays exactly as Prompt 107 left
+            it -- this is what makes the one-line mobile wrap-prevention
+            still work, unrelated to this prompt's color-only revert. */}
         <Link
           href="/"
-          className="text-base font-semibold tracking-wide text-brand-gold lg:flex-1"
+          className="text-sm font-semibold tracking-tight text-brand-gold lg:flex-1 lg:text-base lg:tracking-wide"
         >
           {BRAND_NAME}
         </Link>
@@ -356,23 +362,28 @@ export default function HeaderClient({
             compact enough (an icon; a 2-3 character pill) not to strain
             the collapsed mobile bar the way another full nav ever
             would. */}
-        <div className="flex items-center gap-4 lg:flex-1 lg:justify-end">
+        <div className="flex items-center gap-2 lg:flex-1 lg:justify-end lg:gap-4">
           {/* Desktop categories dropdown -- hover/click/keyboard
               interaction logic byte-for-byte unchanged from Prompt 50.
-              Prompt 79: trigger text base color inverts back to
-              brand-gold (real contrast math on this component's top
-              comment) -- its hover color CANNOT mechanically become
-              brand-black (black text on a now-black bar would be
-              invisible, the mirror of Prompt 67's exact problem) or stay
-              brand-gold (identical to the new rest state, no visible
-              feedback). Landed on the same dimming-not-hue-shifting
-              solution as Prompt 67, just the other color: gold at 70%
-              opacity blended over black -- computed fresh this prompt at
-              ~5.58:1 against the black background (still comfortably
-              above the 4.5:1 this text size needs; slightly lower than
-              Prompt 67's 6.13:1 black/70-over-gold since gold's own
-              luminance is lower than white/cream would be, but well
-              within margin) -- hover:text-brand-gold/70. */}
+              Prompt 108: trigger text back to brand-gold (bar is black
+              again). Hover CANNOT mechanically stay brand-gold
+              (identical to the new rest state, no visible feedback) or
+              become brand-black (invisible against a black bar) -- back
+              to the same dimming-not-hue-shifting solution this element
+              used before Prompt 107, gold this time: gold at 70% opacity
+              over black -- blending onto black is NOT a simple linear
+              scale of gold's own luminance (relative luminance is
+              computed from GAMMA-LINEARIZED channel values, so opacity
+              blending has to happen in sRGB space first, then
+              re-linearize -- confirmed by computing it properly, not
+              assumed): effective rgb(154,127,96), luminance 0.230,
+              contrast vs. black (0.230+.05)/(0+.05) = 5.60:1 --
+              comfortably above the 4.5:1 this text size needs, and
+              matches Prompt 79's own original ~5.58:1 for this exact
+              element almost exactly (real confirmation, not just reused
+              blindly). hover:text-brand-gold/70. This is desktop-only
+              (`hidden lg:flex`), so no mobile-sizing question applies
+              here. */}
           <nav className="hidden lg:flex">
             <div
               className="relative"
@@ -397,21 +408,25 @@ export default function HeaderClient({
                   (bg-brand-black/75 + backdrop-blur-md) rather than
                   staying the old white panel -- kept at those exact DARK
                   values through EVERY header-shape/color prompt since
-                  (63/64/65/66/67, and now 79's second inversion too),
-                  deliberately NOT tracking the bar's own color role: this
-                  dropdown is an absolutely-positioned panel that opens ON
-                  TOP of real page content (whatever the visitor is
-                  looking at scrolls/sits underneath it, genuinely visible
-                  through the panel) -- a wholly different UI surface from
-                  the persistent bar, opened on demand (same "pill vs.
-                  panel" distinction Prompt 65/67 already established).
-                  The bar has now flipped between gold and black twice
-                  (67, 79) while this panel has needed zero changes either
-                  time -- real confirmation that the distinction holds,
-                  not just a one-off justification. Same reasoning applies
-                  unchanged to HeaderSearch.tsx's own results panel, which
-                  mirrors this one's classes exactly. rounded-card (22px,
-                  an established token, Prompt 4/9) kept as-is for this
+                  (63/64/65/66/67, 79's second inversion, 107's third,
+                  and now 108's fourth), deliberately NOT tracking the
+                  bar's own color role: this dropdown is an absolutely-
+                  positioned panel that opens ON TOP of real page content
+                  (whatever the visitor is looking at scrolls/sits
+                  underneath it, genuinely visible through the panel) --
+                  a wholly different UI surface from the persistent bar,
+                  opened on demand (same "pill vs. panel" distinction
+                  Prompt 65/67 already established). Prompt 108
+                  re-confirmed this again: nothing in THIS panel's own
+                  color pairing (cream/gold text on black/75 background)
+                  depends on the bar's color, so its contrast is
+                  unchanged by the bar flipping back to black -- the bar
+                  has now flipped FOUR times (67, 79, 107, 108) while
+                  this panel has needed zero color changes any of those
+                  times. Same reasoning applies unchanged to
+                  HeaderSearch.tsx's own results panel, which mirrors
+                  this one's classes exactly. rounded-card (22px, an
+                  established token, Prompt 4/9) kept as-is for this
                   element specifically -- the header BAR itself uses no
                   rounding at all (Prompt 63), but the dropdown is a
                   distinct UI element no header prompt has asked to
@@ -444,32 +459,62 @@ export default function HeaderClient({
           <LanguageSwitcher />
 
           {/* Quote indicator. Opens the sidebar (Prompt 18) -- behavior
-              unchanged. Prompt 79: the exact reverse of Prompt 67's own
-              reasoning for this button, worked through fresh rather than
-              blindly re-applying the old conclusion. Rest = outlined in
-              border-brand-gold/60, text-brand-gold (reads against the
-              new black bar). Hover: filling with solid brand-gold and
-              keeping text-brand-gold would be invisible (identical
-              foreground/background, the mirror of Prompt 67's exact
-              collision) -- so hover fills with GOLD, border brightens to
-              full brand-gold, and text switches to brand-black (reads at
-              the same 11.1:1 against a solid GOLD fill this component's
-              own top-comment math already confirms, symmetric either
-              way). Net effect worth noting: this hover state (gold fill
-              + black text) now lands on EXACTLY the same color pairing
-              AddToQuoteButton.tsx/Shop Now use at THEIR rest state
-              (Prompts 68/71) -- a coincidental consistency from both
-              landing on the same two-token palette, not something this
-              prompt engineered on purpose (see this file's own top
-              comment for why those buttons were deliberately left
-              independent of the header's own color choice). Same
-              "outline -> filled CTA" interaction shape this button has
-              had since Prompt 56, just the fill/text pairing flipped
-              back. */}
+              unchanged. Prompt 108: rest state back to the pre-107
+              black-bar pairing -- border-brand-black/60 ->
+              border-brand-gold/60 (checked properly, not linearly
+              scaled: gold at 60% opacity over black = effective
+              rgb(132,109,82), luminance 0.165, contrast vs. black =
+              4.30:1 -- clears the 3:1 non-text/border floor comfortably;
+              a border isn't held to the stricter 4.5:1 text threshold),
+              text-brand-black -> text-brand-gold (11.1:1, this
+              component's own top-comment math). Hover state needs NO
+              change at all, same as it needed none going the other
+              direction in Prompt 107: it fills with a SOLID gold
+              background (not blended with the bar's own color), so
+              black text on top of that local gold fill is still the
+              same real, unchanged 11.1:1 pairing regardless of what
+              color the surrounding bar is.
+              Sizing UNCHANGED from Prompt 107 (out of this prompt's
+              scope): mobile-only px-3 py-1 text-xs (vs. lg:px-4
+              lg:py-1.5 lg:text-sm) and the icon size all stay exactly as
+              Prompt 107 left them.
+
+              WORD "Quote" HIDDEN below `sm` (640px), "(N)" always shown --
+              real measured trade-off, not the first thing tried. After
+              every other mobile-sizing reduction in this file (wordmark
+              text-sm/no-tracking, hamburger h-5, all the reduced
+              gaps/padding above), the row STILL didn't fit unwrapped at
+              real phone widths -- true natural-width sums vs. real
+              available width, measured via cloned nowrap elements (not
+              estimated): en 320px needed 411.6/288 avail (123.6px short),
+              375px 411.6/343 (68.6px short), 390px 411.6/358 (53.6px
+              short), 430px 411.6/398 (13.6px short) -- ar slightly worse
+              at every width (128.0/73.0/58.0/18.0px short respectively).
+              Even at 430px, the widest common phone, a real double-digit
+              deficit remained -- no further legible font-size/
+              letter-spacing tightening on the wordmark closes a 54-124px
+              gap without becoming illegible, so per this prompt's own
+              instruction ("propose the most reasonable trade-off... your
+              call, flag this clearly") this hides the one word here that
+              is genuinely redundant with its own icon + visible count --
+              tapping still opens the sidebar, the count is still visible,
+              nothing about the FEATURE is removed, only a repeated label.
+              aria-label keeps the FULL "Quote (N)" phrase for assistive
+              tech regardless of which visual state is showing -- screen
+              reader users never lose the word, only sighted narrow-mobile
+              users see the shorter version. Re-measured with this change
+              applied (see this file's own top comment): now fits
+              unwrapped through the task's own stated 375-430px range;
+              320px specifically still falls short by a real, reported
+              amount -- flagged, not silently forced.
+              Prompt 108 -- this whole abbreviation UNCHANGED (out of
+              scope, color-only prompt): still hidden below `sm`, still
+              the same real measured wrap-prevention fix. */}
           <button
             type="button"
             onClick={openSidebar}
-            className="flex items-center gap-2 rounded-full border border-brand-gold/60 px-4 py-1.5 text-sm font-medium text-brand-gold transition-colors hover:border-brand-gold hover:bg-brand-gold hover:text-brand-black"
+            aria-label={`${t("quote")} (${totalItems})`}
+            className="flex items-center gap-1.5 rounded-full border border-brand-gold/60 px-3 py-1 text-xs font-medium text-brand-gold transition-colors hover:border-brand-gold hover:bg-brand-gold hover:text-brand-black lg:gap-2 lg:px-4 lg:py-1.5 lg:text-sm"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
               <path
@@ -478,21 +523,24 @@ export default function HeaderClient({
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
             </svg>
-            <span>
-              {t("quote")} ({totalItems})
+            <span aria-hidden="true">
+              <span className="hidden sm:inline">{t("quote")} </span>
+              ({totalItems})
             </span>
           </button>
         </div>
       </div>
 
-      {/* Prompt 63's gradient underline, flipped black by Prompt 67, now
-          flipped back to gold by Prompt 79 -- the bar itself is black
-          again, so a gold line reads as the crisp, visible "edge" accent
-          this strip exists to be (a gold line under a now-black bar is
-          back to Prompt 63's own original color pairing, before Prompt
-          67's inversion). Same center-fade-both-edges gradient shape/
-          opacity as always (only the hue changed, again) -- see Prompt
-          63's report for why that shape (not one-directional) and why no
+      {/* Prompt 63's gradient underline -- NO color change this prompt
+          either. The bar is black again (Prompt 108), and gold is
+          exactly the underline color Prompt 79 already paired with a
+          black bar (this same pairing shipped once before, between
+          Prompts 79 and 107) -- decorative/aria-hidden, not subject to
+          text-contrast rules, so this is a historical-consistency
+          choice, not a math one: reusing a pairing this project already
+          proved out, rather than picking a new one. Same center-fade-
+          both-edges gradient shape/opacity as always -- see Prompt 63's
+          report for why that shape (not one-directional) and why no
           rtl: variant is needed (symmetric either direction, still
           true). */}
       <div

@@ -4,6 +4,11 @@ export type ProductCardData = {
   name_en: string;
   name_ar: string;
   categoryName: { en: string; ar: string } | null;
+  /** Prompt 87 (Phase B) -- null for every product until an admin assigns
+   *  one (Phase A's own explicit closing state). ProductCard.tsx must
+   *  render nothing for this when null -- no empty badge, no layout
+   *  shift. */
+  brandName: { en: string; ar: string } | null;
   imageUrl: string | null;
   /** First active size by sort_order, or null if the product has none.
    *  Cards have no size-selection UI (Prompt 12), so "Add to Quote" from

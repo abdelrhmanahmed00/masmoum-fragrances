@@ -18,6 +18,12 @@ type ProductCardProps = {
    *  same reasoning as name_en/name_ar above. `categoryLabel` above stays
    *  as the already-localized string this card itself displays. */
   categoryName: { en: string; ar: string } | null;
+  /** Prompt 87 (Phase B) -- already-localized, same shape/convention as
+   *  categoryLabel above. null for every product until an admin assigns
+   *  a brand (Phase A's own explicit closing state) -- rendered as
+   *  nothing at all in that case, not an empty label, see this
+   *  component's own body below. */
+  brandLabel: string | null;
   imageUrl: string | null;
   defaultSize: { id: string; label: string } | null;
   /** null = unlimited/always available; 0 = sold out (Prompt 28). Any
@@ -58,6 +64,7 @@ export default function ProductCard({
   name_ar,
   categoryLabel,
   categoryName,
+  brandLabel,
   imageUrl,
   defaultSize,
   stockQuantity,
@@ -74,6 +81,20 @@ export default function ProductCard({
     : isMoqUnavailable
       ? unavailableLabel
       : null;
+
+  // Prompt 87 (Phase B) -- category + brand share ONE small-label line
+  // rather than each getting their own row: reuses the exact existing
+  // text-xs/tracking-wide/text-brand-gray/uppercase convention already
+  // established for categoryLabel alone (no new label style invented),
+  // joined with a middot when both are present. Building this as a
+  // filtered-and-joined array (not a fixed "category · brand" template
+  // string) is what guarantees the "brand null -> renders exactly as
+  // before, no empty middot, no layout shift" requirement: when
+  // brandLabel is null (every product until an admin assigns one), this
+  // array only ever contains categoryLabel (or is empty, if that's also
+  // null) -- byte-for-byte the same output this line produced before this
+  // prompt.
+  const metaLabel = [categoryLabel, brandLabel].filter(Boolean).join(" · ");
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card bg-brand-white shadow-card">
@@ -118,9 +139,9 @@ export default function ProductCard({
       </Link>
 
       <div className="flex flex-1 flex-col items-center gap-1 p-4 text-center">
-        {categoryLabel ? (
+        {metaLabel ? (
           <p className="text-xs tracking-wide text-brand-gray uppercase">
-            {categoryLabel}
+            {metaLabel}
           </p>
         ) : null}
         <Link

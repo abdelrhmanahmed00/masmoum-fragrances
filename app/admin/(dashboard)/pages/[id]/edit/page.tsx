@@ -17,7 +17,9 @@ export default async function AdminEditPagePage({
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("pages")
-    .select("id, slug, title_en, title_ar, content_en, content_ar, is_active, created_at")
+    .select(
+      "id, slug, title_en, title_ar, content_en, content_ar, footer_summary_en, footer_summary_ar, is_active, created_at"
+    )
     .eq("id", id)
     .maybeSingle();
 

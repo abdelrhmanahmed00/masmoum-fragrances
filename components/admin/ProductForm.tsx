@@ -9,9 +9,11 @@ import {
 import { slugify } from "@/lib/slugify";
 import FormField from "./FormField";
 import TextareaField from "./TextareaField";
+import BrandCombobox from "./BrandCombobox";
 import {
   PRODUCT_ACTION_INITIAL_STATE,
   type AdminProductRow,
+  type BrandOption,
   type CategoryOption,
 } from "@/types/admin-product";
 
@@ -43,10 +45,13 @@ export default function ProductForm({
   mode,
   product,
   categories,
+  brands,
 }: {
   mode: "create" | "edit";
   product?: AdminProductRow;
   categories: CategoryOption[];
+  /** Prompt 86 (Phase A) -- optional assignment, not shown publicly yet. */
+  brands: BrandOption[];
 }) {
   const action =
     mode === "create"
@@ -143,6 +148,31 @@ export default function ProductForm({
             {fieldErrors?.category_id ? (
               <p className="mt-1 text-xs text-red-600">
                 {fieldErrors.category_id}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Brand (Prompt 86, Phase A; type-to-create combobox, Prompt
+              105) -- optional, unlike Category: an empty selection is a
+              genuinely valid, submittable "no brand assigned" state
+              (BrandCombobox's own hidden input submits "" in that case,
+              same as the old <select>'s "— None —" option did). Not
+              shown on the public site yet in this phase -- see this
+              component's own props comment. */}
+          <div>
+            <label
+              htmlFor="brand_id"
+              className="mb-1.5 block text-sm font-medium text-brand-black"
+            >
+              Brand
+            </label>
+            <BrandCombobox
+              brands={brands}
+              defaultBrandId={product?.brand_id ?? null}
+            />
+            {fieldErrors?.brand_id ? (
+              <p className="mt-1 text-xs text-red-600">
+                {fieldErrors.brand_id}
               </p>
             ) : null}
           </div>

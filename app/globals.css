@@ -196,39 +196,72 @@
      source-order rules (the exact same mechanism Tailwind's own `lg:`
      utility already relied on relative to the unprefixed base -- this
      just adds more layers of the same idea, not a new mechanism). No
-     JSX/className changes were needed anywhere to pick this up. */
-  --spacing-header-offset: 87px;
+     JSX/className changes were needed anywhere to pick this up.
+
+     --- Prompt 107: bar recolored white + real mobile-sizing fixes
+     (smaller hamburger icon, tighter row/end-zone gaps, smaller wordmark
+     with tracking-tight, smaller Quote pill with its own text label
+     hidden below `sm` -- see HeaderClient.tsx's own top comment for the
+     full real-measured derivation of that last one specifically) change
+     the header's real rendered height again -- re-measured fresh here
+     (getBoundingClientRect, 10px coarse sweep then 1px resolution around
+     each real transition, 320-1280px, both directions), NOT assumed to
+     still match Prompt 84's numbers, which were measured against the
+     PRE-this-prompt sizing:
+
+       LTR (English):
+         <=392px:  65px (wordmark still wraps to 2 lines in this range,
+                         even after this prompt's fixes -- see
+                         HeaderClient.tsx's own comment for the real
+                         numbers on why, and the trade-off applied)
+         >=393px (exact): 61px, flat through 1023px
+         >=1024px: 69px -- UNCHANGED from Prompt 84 (this prompt touched
+                         no `lg:`-only classes, confirmed by re-measuring
+                         rather than assumed)
+
+       RTL (Arabic):
+         <=368px:  65px (same real wrapped-tier height as English at this
+                         width, a genuine coincidence of this prompt's
+                         specific new sizing values, not a design intent
+                         -- Prompt 84's own RTL tier was a DIFFERENT
+                         height from English's, 107 vs 87; re-measured
+                         fresh rather than assumed to still differ)
+         >=369px (exact): 63px, flat through 1023px
+         >=1024px: 71px -- UNCHANGED from Prompt 84 (same reasoning as
+                         English above)
+
+     Sanity cross-check (not the source of truth -- the measurements
+     above are -- but confirms the arithmetic model still explains them):
+     one-line LTR row = py-3 top(12) + max(hamburger 36, search-icon 36)
+     + py-3 bottom(12) + underline(1) = 61px, matching exactly; wrapped
+     LTR row = py-3(12) + wordmark-2-lines(2 * text-sm line-height 20 =
+     40) + py-3(12) + underline(1) = 65px, also matching exactly. */
+  --spacing-header-offset: 65px;
   --spacing-header-offset-lg: 69px;
 }
 
-/* Header-offset real-height cascade (Prompt 84) -- see the @theme block
-   above for the full derivation. Plain CSS, not @theme, since these are
-   conditional OVERRIDES of the same custom properties, not new utility-
-   generating tokens. Ordering below is LTR narrow->wide first, then the
-   RTL block, which relies on `html[dir="rtl"]` being MORE specific than
-   a bare `:root` rule (so it always wins over the LTR rules regardless of
-   source order), with its own internal min-width overrides layered the
-   same way underneath it. */
-@media (min-width: 531px) {
+/* Header-offset real-height cascade (Prompt 84, re-measured and updated
+   Prompt 107) -- see the @theme block above for the full derivation.
+   Plain CSS, not @theme, since these are conditional OVERRIDES of the
+   same custom properties, not new utility-generating tokens. Ordering
+   below is LTR narrow->wide first, then the RTL block, which relies on
+   `html[dir="rtl"]` being MORE specific than a bare `:root` rule (so it
+   always wins over the LTR rules regardless of source order), with its
+   own internal min-width override layered the same way underneath it. */
+@media (min-width: 393px) {
   :root {
-    --spacing-header-offset: 73px;
+    --spacing-header-offset: 61px;
   }
 }
 
 html[dir="rtl"] {
-  --spacing-header-offset: 107px;
+  --spacing-header-offset: 65px;
   --spacing-header-offset-lg: 71px;
 }
 
-@media (min-width: 478px) {
+@media (min-width: 369px) {
   html[dir="rtl"] {
-    --spacing-header-offset: 87px;
-  }
-}
-
-@media (min-width: 537px) {
-  html[dir="rtl"] {
-    --spacing-header-offset: 73px;
+    --spacing-header-offset: 63px;
   }
 }
 
@@ -236,4 +269,20 @@ body {
   background: var(--color-brand-white);
   color: var(--color-brand-black);
   font-family: var(--font-sans);
+}
+
+/* Prompt 102 -- scroll-reveal safety net for components/private-label/
+   Reveal.tsx's `.pl-reveal` elements. This CSS-only guard covers the
+   pre-hydration window (before Reveal's own JS `matchMedia` check can
+   run) with zero flash -- the browser applies this before any paint,
+   independent of when/whether JS loads. Reveal ALSO checks
+   prefers-reduced-motion in JS (skips the IntersectionObserver
+   entirely for these users), so this is belt-and-suspenders, not the
+   only guard. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
 }

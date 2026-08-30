@@ -206,14 +206,17 @@ export default function HeaderSearch() {
 
   return (
     <div className="relative" ref={containerRef}>
-      {/* Prompt 79: base icon color inverts back to brand-gold (real
-          contrast math on HeaderClient.tsx's own top comment -- reused,
-          gold-on-black is the same symmetric 11.1:1 as black-on-gold).
-          Same hover reasoning as the Menu trigger there -- black would be
-          invisible against the now-black bar (the mirror of Prompt 67's
-          exact problem), so hover dims the same gold via opacity instead
-          of shifting hue: hover:text-brand-gold/70, ~5.58:1 against
-          black (computed fresh this prompt, comfortably above 4.5:1). */}
+      {/* Prompt 108: base icon color back to brand-gold -- the bar is
+          black again, gold-on-black is the real 11.1:1 pairing
+          HeaderClient.tsx's own top comment cites. Hover dims via
+          opacity (same "dim, don't hue-shift" pattern as every other
+          header hover): hover:text-brand-gold/70 -- gold at 70% opacity
+          over black, computed properly (not linearly scaled): effective
+          rgb(154,127,96), luminance 0.230, contrast vs. black = 5.60:1,
+          comfortably above 4.5:1 (matches HeaderClient.tsx's own
+          Categories-trigger math for the identical blend). Icon size
+          h-5 w-5 unchanged -- Prompt 107's mobile-sizing fix stays as-is,
+          out of this color-only prompt's scope. */}
       <button
         type="button"
         className="p-2 text-brand-gold transition-colors hover:text-brand-gold/70"
@@ -241,12 +244,12 @@ export default function HeaderSearch() {
           this trigger sits further along the end zone than Menu, so the
           panel opens toward the zone it has room in rather than
           overlapping Menu/the wordmark. Kept at these exact DARK values
-          across every header-shape/color prompt since (64/65/66/67, and
-          now 79's second inversion too) -- deliberately NOT tracking the
-          bar's own color role, same "panel is a different surface than
-          the persistent bar" reasoning as HeaderClient.tsx's own
-          categories-dropdown comment (full detail there, not repeated
-          here). */}
+          across every header-shape/color prompt since (64/65/66/67, 79's
+          second inversion, 107's third, and now 108's fourth flip back)
+          -- deliberately NOT tracking the bar's own color role, same
+          "panel is a different surface than the persistent bar"
+          reasoning as HeaderClient.tsx's own categories-dropdown
+          comment (full detail there, not repeated here). */}
       <div
         className={
           "absolute end-0 top-full pt-3 " + (isOpen ? "block" : "hidden")

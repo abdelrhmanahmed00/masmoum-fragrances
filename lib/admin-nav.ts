@@ -6,10 +6,11 @@ export type AdminSection = {
 
 /**
  * Single source of truth for the admin management areas (Prompt 22's
- * original 7, plus Pages added in Prompt 49). Used by both SidebarNav
- * (label + href) and the dashboard home's quick-link cards (label + href
- * + description), so adding, renaming, or reordering a section only ever
- * happens in one place.
+ * original 7, plus Pages added in Prompt 49, plus Brands added in
+ * Prompt 86, plus Private Label added in Prompt 92). Used by both
+ * SidebarNav (label + href) and the dashboard home's quick-link cards
+ * (label + href + description), so adding, renaming, or reordering a
+ * section only ever happens in one place.
  */
 export const ADMIN_SECTIONS: AdminSection[] = [
   {
@@ -23,6 +24,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     label: "Collections",
     description:
       "Cross-cutting tags like Luxury and Best Sellers, used as homepage tabs.",
+  },
+  {
+    href: "/admin/brands",
+    label: "Brands",
+    description:
+      "Brand names assignable to products (Phase A — not shown publicly yet).",
   },
   {
     href: "/admin/products",
@@ -49,7 +56,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     href: "/admin/pages",
     label: "Pages",
     description:
-      "Standalone content pages (Policy, Private Label, ...) shown at /pages/<slug>.",
+      "Standalone content pages (Policy, About, ...) shown at /pages/<slug>.",
+  },
+  {
+    href: "/admin/private-label",
+    label: "Private Label Page",
+    description:
+      "The hero banner, experience section image, 2 feature block images, and the closing CTA background photo on the fully custom /private-label landing page.",
   },
   {
     href: "/admin/quote-requests",

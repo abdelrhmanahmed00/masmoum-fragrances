@@ -16,7 +16,9 @@ async function getAllPages(): Promise<AdminPageRow[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("pages")
-    .select("id, slug, title_en, title_ar, content_en, content_ar, is_active, created_at")
+    .select(
+      "id, slug, title_en, title_ar, content_en, content_ar, footer_summary_en, footer_summary_ar, is_active, created_at"
+    )
     .order("created_at", { ascending: true });
 
   if (error || !data) return [];

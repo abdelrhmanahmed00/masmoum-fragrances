@@ -24,6 +24,9 @@ export type AdminProductRow = {
   id: string;
   slug: string;
   category_id: string;
+  /** Prompt 86 (Phase A) -- nullable, unlike category_id: a product may
+   *  have no brand assigned at all, a fully valid state, not an error. */
+  brand_id: string | null;
   name_en: string;
   name_ar: string;
   description_en: string | null;
@@ -54,12 +57,23 @@ export type CategoryOption = {
   is_active: boolean;
 };
 
+/** Same shape as CategoryOption, for the form's optional brand_id
+ *  <select> (Prompt 86, Phase A) -- see lib/admin/products.ts's
+ *  getBrandOptions for the same "include inactive, mark them" reasoning. */
+export type BrandOption = {
+  id: string;
+  name_en: string;
+  name_ar: string;
+  is_active: boolean;
+};
+
 export type ProductFieldErrors = Partial<
   Record<
     | "name_en"
     | "name_ar"
     | "slug"
     | "category_id"
+    | "brand_id"
     | "gender"
     | "description_en"
     | "description_ar"

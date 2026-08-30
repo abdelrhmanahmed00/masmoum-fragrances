@@ -11,10 +11,24 @@ import type { ProductDetail } from "@/types/product-detail";
 // card query/mapping shape in lockstep everywhere anyway, so the drift
 // risk of keeping two copies outweighs the churn of merging them).
 
+// Prompt 87 (Phase B) -- brand:brands(name_en, name_ar) added to the same
+// shared select every card-rendering call site already goes through, so
+// the badge/filter work needed exactly ONE change here, not five separate
+// query edits. A product with brand_id = null (every product until an
+// admin assigns one, Phase A's own explicit closing state) simply comes
+// back with `brand: null` from this embed -- Supabase's left-join-style
+// embed semantics for a nullable FK, same as `category` already behaves
+// for the (rarer, defensively-handled) case of a product with no category.
 export const PRODUCT_CARD_SELECT =
-  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)";
+  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), brand:brands(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
+/** Prompt 87 -- same shape as RawCategory, kept as its own named type
+ *  rather than reused: Brand is "a distinct concept from Category" (Phase
+ *  A's own migration comment), and every other taxonomy in this file
+ *  already gets its own Row/Raw type rather than sharing one across
+ *  unrelated concepts that happen to have identical shapes. */
+type RawBrand = { name_en: string; name_ar: string } | null;
 type RawImage = { storage_path: string; is_primary: boolean };
 type RawSize = {
   id: string;
@@ -34,6 +48,7 @@ export type RawProductCard = {
   stock_quantity: number | null;
   moq: number;
   category: RawCategory;
+  brand: RawBrand;
   images: RawImage[];
   sizes: RawSize[];
 };
@@ -55,6 +70,13 @@ export function toCardData(product: RawProductCard): ProductCardData {
     name_ar: product.name_ar,
     categoryName: product.category
       ? { en: product.category.name_en, ar: product.category.name_ar }
+      : null,
+    // Prompt 87 -- null for every product until an admin assigns one
+    // (Phase A's own explicit closing state). ProductCard.tsx must render
+    // nothing at all for this, not an empty badge -- see that component's
+    // own comment.
+    brandName: product.brand
+      ? { en: product.brand.name_en, ar: product.brand.name_ar }
       : null,
     imageUrl: primaryImage
       ? getPublicStorageUrl("product-images", primaryImage.storage_path)
@@ -83,6 +105,17 @@ export type CategoryRow = {
 };
 
 export type CollectionRow = {
+  id: string;
+  slug: string;
+  name_en: string;
+  name_ar: string;
+};
+
+/** Prompt 86 (Phase A) -- same shape as CategoryRow/CollectionRow. Not
+ *  consumed by any public page yet in this phase (no public brand display
+ *  until Phase B); added now so the read side already exists, correctly
+ *  tagged, for that phase to build on without a schema-adjacent change. */
+export type BrandRow = {
   id: string;
   slug: string;
   name_en: string;
@@ -132,6 +165,25 @@ export async function getCollectionBySlug(
   ]);
   const { data, error } = await supabase
     .from("collections")
+    .select("id, slug, name_en, name_ar")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  return error || !data ? null : data;
+}
+
+/** Prompt 87 (Phase B) -- byte-for-byte the same shape as
+ *  getCollectionBySlug above: resolves the /products page's `?brand=<slug>`
+ *  searchParam to a real id, which getAllActiveProducts' new brandId
+ *  filter then queries by (same "resolve slug -> id in the page" pattern
+ *  as collectionId on category pages). */
+export async function getBrandBySlug(slug: string): Promise<BrandRow | null> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "brands",
+  ]);
+  const { data, error } = await supabase
+    .from("brands")
     .select("id, slug, name_en, name_ar")
     .eq("slug", slug)
     .eq("is_active", true)
@@ -205,6 +257,70 @@ export async function getActiveCategoriesList(): Promise<CategoryRow[]> {
   return error || !data ? [] : data;
 }
 
+/** Prompt 86 (Phase A) -- all active brands, ordered by sort_order.
+ *  Byte-for-byte the same shape as getActiveCategoriesList above, tagged
+ *  "brands" (its own dedicated tag, not reused from "categories" -- a
+ *  brand edit/delete should never invalidate category-tagged reads and
+ *  vice versa, same one-tag-per-table discipline as every other taxonomy
+ *  here). Not called from any public page yet in this phase -- exists now
+ *  so Phase B's public display work starts from an already-correct,
+ *  already-cached read rather than adding one under time pressure then. */
+export async function getActiveBrandsList(): Promise<BrandRow[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "brands",
+  ]);
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name_en, name_ar")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  return error || !data ? [] : data;
+}
+
+/** Prompt 87 (Phase B) -- the /products page's brand FILTER option list,
+ *  deliberately NOT getActiveBrandsList above: this task explicitly
+ *  requires "only show brands that have at least one active product
+ *  currently assigned to them" -- an empty-brand filter option would be
+ *  confusing (the task's own wording). This is a real, meaningful
+ *  deviation from getActiveCollectionsList's own "not scoped to has-
+ *  products, simpler" precedent (see that function's comment) -- a
+ *  deliberate choice for THIS filter, not an oversight; collections'
+ *  looser behavior is left completely untouched.
+ *
+ *  `brands!left... ` isn't used -- `products!inner(id)` on the embed is
+ *  what does the actual scoping: PostgREST's `!inner` modifier (already
+ *  used elsewhere in this file, e.g. product_collections!inner on
+ *  getCategoryProducts) turns the embed into an INNER join for the
+ *  purpose of which BRAND rows come back at all, while still returning
+ *  one row per brand (not one row per matching product) -- confirmed via
+ *  the same mechanism already proven correct in this codebase, not a new
+ *  PostgREST feature introduced for this one query. `.eq("products.is_active",
+ *  true)` is the dot-path filter on that embedded relation (same syntax
+ *  already used for `.eq("product_collections.collection_id", ...)`
+ *  elsewhere in this file). The embedded `products` array itself is
+ *  discarded below -- only used to gate which brand rows are included. */
+export async function getBrandsWithActiveProducts(): Promise<BrandRow[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "brands",
+    "products",
+  ]);
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name_en, name_ar, products!inner(id)")
+    .eq("is_active", true)
+    .eq("products.is_active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map(({ id, slug, name_en, name_ar }) => ({
+    id,
+    slug,
+    name_en,
+    name_ar,
+  }));
+}
+
 export async function getCategoryProducts({
   categoryId,
   gender,
@@ -219,10 +335,12 @@ export async function getCategoryProducts({
   // (Prompt 27 -- this reads the products table itself, so a product
   // create/edit/delete needs this invalidated too, not just a category
   // rename). See the Prompt 27 report for the full list of call sites
-  // that carry "products".
+  // that carry "products". Prompt 87: "brands" added too -- PRODUCT_CARD_SELECT
+  // now also embeds brand:brands(name_en, name_ar).
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
     "products",
+    "brands",
   ]);
 
   // product_collections!inner(collection_id) is only added to the select
@@ -254,11 +372,12 @@ export async function getCollectionProducts({
 }: {
   collectionId: string;
 }): Promise<ProductCardData[]> {
-  // Tagged "categories" + "products" -- same reasoning as
+  // Tagged "categories" + "products" + "brands" -- same reasoning as
   // getCategoryProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
     "products",
+    "brands",
   ]);
   const { data, error } = await supabase
     .from("products")
@@ -279,20 +398,32 @@ export async function getCollectionProducts({
  *  full listing page that shows everything, not a capped preview -- the
  *  homepage's own capped "All" tab has its own separate, bounded query
  *  in ProductsSection.tsx (getAllProductsTab) and was deliberately never
- *  built on this function either. */
-export async function getAllActiveProducts(): Promise<ProductCardData[]> {
-  // Tagged "categories" + "products" -- same reasoning as
+ *  built on this function either.
+ *
+ *  Prompt 87 (Phase B): optional `brandId` -- the /products page's new
+ *  brand filter, same "resolve slug -> id in the page, pass id down"
+ *  pattern as getCategoryProducts' collectionId param. Omitted (or null)
+ *  behaves identically to before this prompt -- no existing caller passes
+ *  it, so this is purely additive to this function's contract. */
+export async function getAllActiveProducts({
+  brandId,
+}: { brandId?: string | null } = {}): Promise<ProductCardData[]> {
+  // Tagged "categories" + "products" + "brands" -- same reasoning as
   // getCategoryProducts/getCollectionProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
     "products",
+    "brands",
   ]);
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select(PRODUCT_CARD_SELECT)
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
+  if (brandId) query = query.eq("brand_id", brandId);
+
+  const { data, error } = await query;
   return error || !data
     ? []
     : data.map((p) => toCardData(p as unknown as RawProductCard));
@@ -315,6 +446,7 @@ const PRODUCT_DETAIL_SELECT = `
   fragrance_base_notes_en, fragrance_base_notes_ar,
   moq, stock_quantity, category_id,
   category:categories(name_en, name_ar),
+  brand:brands(name_en, name_ar),
   images:product_images(storage_path, is_primary, sort_order),
   sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)
 `;
@@ -340,6 +472,8 @@ type RawProductDetail = {
    *  75's own getRelatedProducts needs the actual id to filter by). */
   category_id: string | null;
   category: RawCategory;
+  /** Prompt 87 -- same nullable-embed shape as category above. */
+  brand: RawBrand;
   images: { storage_path: string; is_primary: boolean; sort_order: number }[];
   sizes: {
     id: string;
@@ -355,10 +489,12 @@ export async function getProductBySlug(
 ): Promise<ProductDetail | null> {
   // Tagged "categories" (PRODUCT_DETAIL_SELECT embeds category data via a
   // join) + "products" (Prompt 27 -- this IS the product's own detail
-  // read, so an edit to this exact product needs it invalidated too).
+  // read, so an edit to this exact product needs it invalidated too) +
+  // "brands" (Prompt 87 -- the select now also embeds brand:brands(...)).
   const supabase = createPublicClient(REVALIDATE_SECONDS.product, [
     "categories",
     "products",
+    "brands",
   ]);
   const { data, error } = await supabase
     .from("products")
@@ -389,6 +525,10 @@ export async function getProductBySlug(
     stockQuantity: raw.stock_quantity,
     categoryName: raw.category
       ? { en: raw.category.name_en, ar: raw.category.name_ar }
+      : null,
+    // Prompt 87 -- null for every product until an admin assigns one.
+    brandName: raw.brand
+      ? { en: raw.brand.name_en, ar: raw.brand.name_ar }
       : null,
     categoryId: raw.category_id,
     images: raw.images
@@ -448,13 +588,14 @@ export async function getRelatedProducts({
 }): Promise<ProductCardData[]> {
   if (!categoryId) return [];
 
-  // Tagged "categories" + "products", same reasoning as every other
-  // product-reading function in this file (PRODUCT_CARD_SELECT embeds a
-  // category join, and this reads the products table directly) --
-  // reused, not a new tag invented for this one function.
+  // Tagged "categories" + "products" + "brands", same reasoning as every
+  // other product-reading function in this file (PRODUCT_CARD_SELECT
+  // embeds category AND brand joins, and this reads the products table
+  // directly) -- reused, not a new tag invented for this one function.
   const supabase = createPublicClient(REVALIDATE_SECONDS.product, [
     "categories",
     "products",
+    "brands",
   ]);
   const { data, error } = await supabase
     .from("products")

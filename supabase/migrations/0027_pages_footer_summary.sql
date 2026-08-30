@@ -1,0 +1,33 @@
+-- Prompt 91: adds two nullable columns to the existing `pages` table --
+-- footer_summary_en/footer_summary_ar -- a short, ADMIN-AUTHORED blurb
+-- distinct from a page's own full content_en/content_ar.
+--
+-- Why this exists (the real design question this prompt worked through):
+-- the Footer's new "Contact Us" accordion needs to show a short location/
+-- expertise summary reusing the About page's own content, WITHOUT
+-- duplicating it as a second hand-maintained copy. The naive approach --
+-- parse the About page's freeform content_en (lib/content-blocks.ts) and
+-- extract blocks by matching heading text like "Where We Operate" -- was
+-- rejected as too fragile: those headings have no stable identifier, just
+-- free text, so renaming/reordering/removing a heading on the About page
+-- (a normal admin edit, with nothing warning them of this coupling) would
+-- silently break the footer accordion's content with no error anywhere.
+--
+-- This column is the robust alternative: the SAME `pages` row (still one
+-- row per page, no new table, no FK), with a SECOND, PURPOSE-BUILT field
+-- the admin fills in once, edited in the exact same About page admin
+-- form as the main content. No parsing coupling to the main content's
+-- structure -- if the admin rewrites "Where We Operate" entirely, this
+-- field is simply unaffected until they choose to update it too.
+--
+-- Generic, not About-page-specific: every `pages` row gets this column
+-- (matching the table's own existing generic-CMS design, same as it
+-- already serves Policy/Private Label/About uniformly) -- it's simply
+-- unused (NULL) on rows that don't need a footer summary, which is
+-- exactly what a nullable column with no default is for. No RLS/grant
+-- changes needed: the existing "pages_public_select_active"/
+-- "pages_admin_all" policies (0025 migration) already cover every column
+-- on this table, not a fixed list.
+alter table public.pages
+  add column footer_summary_en text,
+  add column footer_summary_ar text;

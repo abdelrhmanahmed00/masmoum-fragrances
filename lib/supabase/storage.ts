@@ -1,6 +1,10 @@
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-export type StorageBucket = "hero-images" | "product-images" | "home-videos";
+export type StorageBucket =
+  | "hero-images"
+  | "product-images"
+  | "home-videos"
+  | "private-label-images";
 
 /**
  * Builds the public URL for an object in a public Supabase Storage bucket

@@ -2,7 +2,10 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { createPublicClient } from "@/lib/supabase/server";
 import { REVALIDATE_SECONDS } from "@/lib/config";
+import { getPageBySlug } from "@/lib/pages";
+import { parseContentBlocks, type ContentBlock } from "@/lib/content-blocks";
 import { InstagramIcon, FacebookIcon, TikTokIcon } from "./SocialIcons";
+import FooterContactAccordion from "./FooterContactAccordion";
 
 const BRAND_NAME = "MASMOUM FRAGRANCES";
 
@@ -16,16 +19,32 @@ const SHOP_LINKS = [
   { key: "collections", href: "/collections" },
 ] as const;
 
-// about/contact are still forward-looking placeholders (Prompt 48's own
-// flagged 404 gap) -- unchanged, explicitly out of scope this prompt.
-// policy/privateLabel (Prompt 49) are real, live pages -- both under
-// /pages/<slug> (see app/[locale]/(marketing)/pages/[slug]/page.tsx's own
-// comment for the URL-shape reasoning).
+// Prompt 90: "about" is now a real, live page too -- a real `pages` row
+// (slug "about") created via the same generic Pages CMS as policy/
+// privateLabel (Prompt 49), same /pages/<slug> URL shape (see
+// app/[locale]/(marketing)/pages/[slug]/page.tsx's own comment for the
+// reasoning). Was `/about` (Prompt 48's own flagged 404 gap -- no such
+// route ever existed) -- fixed to point at the real page instead of
+// inventing a dedicated /about route, since the Pages CMS already covers
+// exactly this need.
+//
+// Prompt 91: "contact" is REMOVED from this plain-link array -- it used
+// to be a dead `/contact` placeholder (Prompt 48's own flagged 404 gap),
+// now replaced by a real expand/collapse accordion
+// (FooterContactAccordion), rendered explicitly below rather than mapped
+// here, since it needs real data (the "about" page's footer summary +
+// site_settings email/phone) a plain {key,href} pair can't carry.
+//
+// Prompt 92: "privateLabel" now points at `/private-label` -- a real
+// dedicated, fully custom-designed route (app/[locale]/(marketing)/
+// private-label/page.tsx), NOT the generic Pages CMS's `/pages/<slug>`
+// shape anymore. The OLD "private-label" pages-CMS row (Prompt 25/49)
+// is deactivated, not deleted -- see that route's own top comment and
+// this prompt's report for the full reasoning.
 const SUPPORT_LINKS = [
-  { key: "about", href: "/about" },
-  { key: "contact", href: "/contact" },
+  { key: "about", href: "/pages/about" },
   { key: "policy", href: "/pages/policy" },
-  { key: "privateLabel", href: "/pages/private-label" },
+  { key: "privateLabel", href: "/private-label" },
 ] as const;
 
 const CONTACT_SETTING_KEYS = [
@@ -110,14 +129,58 @@ async function getContactSettings(locale: string) {
   };
 }
 
+/**
+ * Prompt 91 -- the "Contact Us" accordion's location/expertise blurb,
+ * reusing the SAME "about" pages-CMS row created in Prompt 90 (not a
+ * second hand-maintained copy) via its own dedicated footer_summary_en/ar
+ * column (0027 migration) -- see that migration's own comment for why
+ * that's the robust choice over extracting sections from content_en/ar
+ * by matching heading text.
+ *
+ * getPageBySlug already returns null for a missing/inactive "about" row
+ * -- parseContentBlocks("") correctly returns [] (confirmed via
+ * lib/content-blocks.ts's own flushParagraph/flushList no-ops on empty
+ * input), so every failure mode here (no about page yet, footer summary
+ * left blank, fetch error) degrades to the exact same "no summary
+ * blocks" state Footer already handles gracefully everywhere else in
+ * this file.
+ *
+ * Same locale-preference-with-fallback rule as pickLocalizedSetting above
+ * (current locale first, the OTHER locale's text if only one has been
+ * filled in) -- consistent with every other bilingual field on this
+ * page, not a new rule invented for this one.
+ */
+async function getFooterContactSummaryBlocks(
+  locale: string
+): Promise<ContentBlock[]> {
+  const about = await getPageBySlug("about");
+  if (!about) return [];
+
+  const primary = locale === "ar" ? about.footer_summary_ar : about.footer_summary_en;
+  const fallback = locale === "ar" ? about.footer_summary_en : about.footer_summary_ar;
+  const text = normalize(primary) ?? normalize(fallback);
+
+  return text ? parseContentBlocks(text) : [];
+}
+
 export default async function Footer() {
   const locale = await getLocale();
   const t = await getTranslations("Footer");
   const nav = await getTranslations("Header.nav");
   const year = new Date().getFullYear();
-  const { email, phone, whatsapp, instagram, facebook, tiktok } =
-    await getContactSettings(locale);
+  const [{ email, phone, whatsapp, instagram, facebook, tiktok }, contactSummaryBlocks] =
+    await Promise.all([
+      getContactSettings(locale),
+      getFooterContactSummaryBlocks(locale),
+    ]);
   const hasSocialLinks = Boolean(instagram || facebook || tiktok);
+  // Prompt 91 -- the accordion itself only renders if there's genuinely
+  // something to show inside it once expanded (summary content OR email
+  // OR phone) -- otherwise it'd be a clickable row that opens onto
+  // nothing, the same "don't render a broken/empty control" discipline
+  // as hasSocialLinks above.
+  const hasContactAccordionContent =
+    contactSummaryBlocks.length > 0 || Boolean(email) || Boolean(phone);
 
   return (
     // Prompt 74: bg-brand-white -> bg-brand-surface. Re-fetched
@@ -171,7 +234,34 @@ export default async function Footer() {
               {t("supportHeading")}
             </h3>
             <ul className="space-y-2">
-              {SUPPORT_LINKS.map((item) => (
+              {/* "about" rendered explicitly first, ahead of the map
+                  below -- Prompt 91's accordion needs to sit in this
+                  exact SAME position ("about", then "Contact Us", then
+                  "policy"/"privateLabel") that the old flat SUPPORT_LINKS
+                  array (including "contact") used to produce, but can't
+                  itself be a plain {key,href} entry in that array (it
+                  needs real fetched data, not just a static href). */}
+              <li>
+                <Link
+                  href={SUPPORT_LINKS[0].href}
+                  className="text-sm text-brand-gray transition-colors hover:text-brand-black"
+                >
+                  {nav(SUPPORT_LINKS[0].key)}
+                </Link>
+              </li>
+              {hasContactAccordionContent ? (
+                <li>
+                  <FooterContactAccordion
+                    label={t("contactHeading")}
+                    summaryBlocks={contactSummaryBlocks}
+                    email={email}
+                    emailLabel={t("contactEmailLabel")}
+                    phone={phone}
+                    phoneLabel={t("contactPhoneLabel")}
+                  />
+                </li>
+              ) : null}
+              {SUPPORT_LINKS.slice(1).map((item) => (
                 <li key={item.key}>
                   <Link
                     href={item.href}
@@ -241,6 +331,48 @@ export default async function Footer() {
                     className="transition-colors hover:text-brand-black"
                   >
                     {t("contactWhatsappLabel")}
+                  </a>
+                </p>
+              ) : null}
+              {whatsapp ? (
+                // Prompt 88 -- a SECOND, distinct WhatsApp link, directly
+                // below the plain one above: same number (contact_whatsapp,
+                // one source of truth, one gate -- both lines appear/
+                // disappear together, since neither can work without a
+                // real number set), but this one opens WhatsApp with a
+                // pre-filled price-inquiry message via wa.me's `?text=`
+                // param, for a visitor who wants to ask about pricing in
+                // one tap rather than typing an opener themselves.
+                // Deliberately placed in the Contact column, not the
+                // Support column next to the existing internal `/quote`
+                // link (which shares similar EN wording, "Request a
+                // Quote," per this prompt's own explicit label -- a real,
+                // considered choice, not an oversight: the two go to
+                // genuinely different destinations -- one to this site's
+                // own multi-item quote cart flow, this one straight to an
+                // external WhatsApp chat -- and sitting directly under
+                // the plain "WhatsApp" line here gives it context a
+                // Support-column placement wouldn't (there's nothing
+                // WhatsApp-flavored to visually group it with there).
+                //
+                // Same digit-only normalization as the plain WhatsApp
+                // link directly above (`.replace(/[^\d]/g, "")`) and the
+                // admin's own existing wa.me shortcut
+                // (app/admin/(dashboard)/quote-requests/[id]/page.tsx) --
+                // reused, not reinvented: wa.me expects international-
+                // format digits with no `+`/spaces/dashes, and stripping
+                // every non-digit character handles whatever format an
+                // admin actually typed into site_settings (confirmed
+                // there's no enforced format there today) the same way
+                // every other wa.me link in this project already does.
+                <p>
+                  <a
+                    href={`https://wa.me/${whatsapp.replace(/[^\d]/g, "")}?text=${encodeURIComponent(t("whatsappQuoteMessage"))}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="transition-colors hover:text-brand-black"
+                  >
+                    {t("whatsappQuoteLabel")}
                   </a>
                 </p>
               ) : null}

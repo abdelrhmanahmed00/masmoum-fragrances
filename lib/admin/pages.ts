@@ -24,6 +24,9 @@ type PageInput = {
   slug: string;
   content_en: string;
   content_ar: string;
+  /** Prompt 91 -- optional. See types/admin-page.ts's own comment. */
+  footer_summary_en: string | null;
+  footer_summary_ar: string | null;
   is_active: boolean;
 };
 
@@ -36,6 +39,11 @@ function validate(formData: FormData): {
   const slugRaw = trimmedOrNull(formData.get("slug"));
   const content_en = trimmedOrNull(formData.get("content_en"));
   const content_ar = trimmedOrNull(formData.get("content_ar"));
+  // Optional (Prompt 91) -- no requiredness check, unlike content_en/ar
+  // above: an empty field is a real, valid "no footer summary set for
+  // this page" state, not something to reject.
+  const footer_summary_en = trimmedOrNull(formData.get("footer_summary_en"));
+  const footer_summary_ar = trimmedOrNull(formData.get("footer_summary_ar"));
   const is_active = formData.get("is_active") === "on";
 
   const fieldErrors: PageFieldErrors = {};
@@ -68,7 +76,16 @@ function validate(formData: FormData): {
 
   return {
     fieldErrors,
-    values: { title_en, title_ar, slug, content_en, content_ar, is_active },
+    values: {
+      title_en,
+      title_ar,
+      slug,
+      content_en,
+      content_ar,
+      footer_summary_en,
+      footer_summary_ar,
+      is_active,
+    },
   };
 }
 

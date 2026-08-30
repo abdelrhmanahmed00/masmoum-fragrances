@@ -41,10 +41,12 @@ async function getAllProductsTab(): Promise<ProductTabData> {
   // Tagged "categories" (PRODUCT_CARD_SELECT embeds category data via a
   // join, Prompt 23) + "products" (Prompt 27 -- this reads the products
   // table directly, so a product create/edit/delete must invalidate the
-  // homepage tabs too, not just a category rename).
+  // homepage tabs too, not just a category rename) + "brands" (Prompt 87
+  // -- PRODUCT_CARD_SELECT now also embeds brand:brands(...)).
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
     "products",
+    "brands",
   ]);
   const { data, error, count } = await supabase
     .from("products")
@@ -77,11 +79,12 @@ async function getCategoryTab(category: {
   name_en: string;
   name_ar: string;
 }): Promise<ProductTabData> {
-  // Tagged "categories" + "products" -- same reasoning as
+  // Tagged "categories" + "products" + "brands" -- same reasoning as
   // getAllProductsTab above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
     "categories",
     "products",
+    "brands",
   ]);
   const { data, error, count } = await supabase
     .from("products")

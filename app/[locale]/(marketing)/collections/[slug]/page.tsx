@@ -71,6 +71,13 @@ export default async function CollectionPage({
                   : null
               }
               categoryName={product.categoryName}
+              brandLabel={
+                product.brandName
+                  ? locale === "ar"
+                    ? product.brandName.ar
+                    : product.brandName.en
+                  : null
+              }
               imageUrl={product.imageUrl}
               defaultSize={product.defaultSize}
               stockQuantity={product.stockQuantity}

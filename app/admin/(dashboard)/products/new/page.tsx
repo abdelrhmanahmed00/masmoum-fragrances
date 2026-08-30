@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createSessionClient } from "@/lib/supabase/server";
-import { getCategoryOptions } from "@/lib/admin/products";
+import { getCategoryOptions, getBrandOptions } from "@/lib/admin/products";
 import ProductForm from "@/components/admin/ProductForm";
 
 export const metadata: Metadata = {
@@ -10,13 +10,16 @@ export const metadata: Metadata = {
 
 export default async function AdminNewProductPage() {
   const supabase = await createSessionClient();
-  const categories = await getCategoryOptions(supabase);
+  const [categories, brands] = await Promise.all([
+    getCategoryOptions(supabase),
+    getBrandOptions(supabase),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="text-xl font-semibold text-brand-black">Add Product</h1>
       <div className="mt-6">
-        <ProductForm mode="create" categories={categories} />
+        <ProductForm mode="create" categories={categories} brands={brands} />
       </div>
     </div>
   );

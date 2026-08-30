@@ -42,6 +42,9 @@ export type ProductDetail = {
    *  this same field) governs instead. */
   stockQuantity: number | null;
   categoryName: { en: string; ar: string } | null;
+  /** Prompt 87 (Phase B) -- same "null until an admin assigns one" shape
+   *  as ProductCardData.brandName. */
+  brandName: { en: string; ar: string } | null;
   /** The category's own id (Prompt 75) -- distinct from categoryName
    *  above, which is already-localized display text. Needed so the
    *  product detail page can fetch "You May Also Like" products sharing

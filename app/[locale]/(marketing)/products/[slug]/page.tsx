@@ -61,6 +61,16 @@ export default async function ProductPage({
       ? product.categoryName.ar
       : product.categoryName.en
     : null;
+  // Prompt 87 (Phase B) -- null for every product until an admin assigns
+  // one (Phase A's own explicit closing state). Same "filter + join, so
+  // null renders exactly as before with zero layout change" approach as
+  // ProductCard.tsx's own metaLabel -- see that component's comment.
+  const brandLabel = product.brandName
+    ? locale === "ar"
+      ? product.brandName.ar
+      : product.brandName.en
+    : null;
+  const metaLabel = [categoryLabel, brandLabel].filter(Boolean).join(" · ");
   const topNotes =
     locale === "ar"
       ? product.fragrance_top_notes_ar
@@ -113,9 +123,9 @@ export default async function ProductPage({
         <ProductGallery images={images} productName={name} />
 
         <div>
-          {categoryLabel ? (
+          {metaLabel ? (
             <p className="text-xs tracking-wide text-brand-gray uppercase">
-              {categoryLabel}
+              {metaLabel}
             </p>
           ) : null}
 
