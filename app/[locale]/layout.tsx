@@ -9,6 +9,7 @@ import { siteConfig } from "@/lib/config";
 import { getMetaPixelId, buildMetaPixelBaseScript } from "@/lib/meta-pixel";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import FloatingWhatsAppButton from "@/components/layout/FloatingWhatsAppButton";
 import { QuoteProvider } from "@/components/quote/QuoteProvider";
 import QuoteSidebar from "@/components/quote/QuoteSidebar";
 import "../globals.css";
@@ -125,6 +126,12 @@ export default async function LocaleLayout({
                 state (from context) keeps it invisible/inert until the
                 Header's Quote pill opens it. */}
             <QuoteSidebar />
+            {/* Prompt 122 -- persistent floating "chat with us" button,
+                mounted once at the root alongside Header/Footer/
+                QuoteSidebar, same "site-wide, not page content" reasoning.
+                Renders nothing itself when contact_whatsapp is unset --
+                see its own file for the full design/positioning notes. */}
+            <FloatingWhatsAppButton />
           </QuoteProvider>
         </NextIntlClientProvider>
       </body>

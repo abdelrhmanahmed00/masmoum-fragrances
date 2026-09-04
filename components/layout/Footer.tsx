@@ -4,6 +4,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import { REVALIDATE_SECONDS } from "@/lib/config";
 import { getPageBySlug } from "@/lib/pages";
 import { parseContentBlocks, type ContentBlock } from "@/lib/content-blocks";
+import { buildWhatsAppHref } from "@/lib/whatsapp";
 import { InstagramIcon, FacebookIcon, TikTokIcon } from "./SocialIcons";
 import FooterContactAccordion from "./FooterContactAccordion";
 
@@ -325,7 +326,7 @@ export default async function Footer() {
                 // the href, building the wa.me link.
                 <p>
                   <a
-                    href={`https://wa.me/${whatsapp.replace(/[^\d]/g, "")}`}
+                    href={buildWhatsAppHref(whatsapp)}
                     target="_blank"
                     rel="noreferrer"
                     className="transition-colors hover:text-brand-black"
@@ -356,18 +357,21 @@ export default async function Footer() {
                 // WhatsApp-flavored to visually group it with there).
                 //
                 // Same digit-only normalization as the plain WhatsApp
-                // link directly above (`.replace(/[^\d]/g, "")`) and the
-                // admin's own existing wa.me shortcut
-                // (app/admin/(dashboard)/quote-requests/[id]/page.tsx) --
-                // reused, not reinvented: wa.me expects international-
-                // format digits with no `+`/spaces/dashes, and stripping
-                // every non-digit character handles whatever format an
-                // admin actually typed into site_settings (confirmed
-                // there's no enforced format there today) the same way
-                // every other wa.me link in this project already does.
+                // link directly above and the admin's own existing wa.me
+                // shortcut (app/admin/(dashboard)/quote-requests/[id]/
+                // page.tsx) -- both this link and the plain one now call
+                // the SAME shared buildWhatsAppHref (lib/whatsapp.ts,
+                // Prompt 122) rather than each carrying its own inline
+                // copy of the `.replace(/[^\d]/g, "")` regex: wa.me
+                // expects international-format digits with no `+`/
+                // spaces/dashes, and stripping every non-digit character
+                // handles whatever format an admin actually typed into
+                // site_settings (confirmed there's no enforced format
+                // there today) the same way every other wa.me link in
+                // this project already does.
                 <p>
                   <a
-                    href={`https://wa.me/${whatsapp.replace(/[^\d]/g, "")}?text=${encodeURIComponent(t("whatsappQuoteMessage"))}`}
+                    href={buildWhatsAppHref(whatsapp, t("whatsappQuoteMessage"))}
                     target="_blank"
                     rel="noreferrer"
                     className="transition-colors hover:text-brand-black"
