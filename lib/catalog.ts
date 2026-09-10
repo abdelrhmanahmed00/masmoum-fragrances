@@ -257,6 +257,36 @@ export async function getActiveCategoriesList(): Promise<CategoryRow[]> {
   return error || !data ? [] : data;
 }
 
+/** Prompt 125 -- the homepage Category Templates Strip's own data, a
+ *  DIFFERENT function rather than adding image_storage_path onto
+ *  CategoryRow/getActiveCategoriesList above: that type/function already
+ *  has two real call sites (Header.tsx's nav dropdown, ProductsSection.tsx's
+ *  category tabs), neither of which needs image data -- widening a
+ *  shared, already-consumed type for one new caller's extra field is
+ *  needless churn when a small dedicated query does the same job. Same
+ *  active-only/sort_order-ordered/"categories"-tagged shape as
+ *  getActiveCategoriesList, just one extra selected column. */
+export type CategoryTemplate = {
+  id: string;
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  image_storage_path: string | null;
+};
+
+export async function getCategoryTemplates(): Promise<CategoryTemplate[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "categories",
+  ]);
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, slug, name_en, name_ar, image_storage_path")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+
+  return error || !data ? [] : data;
+}
+
 /** Prompt 86 (Phase A) -- all active brands, ordered by sort_order.
  *  Byte-for-byte the same shape as getActiveCategoriesList above, tagged
  *  "brands" (its own dedicated tag, not reused from "categories" -- a
@@ -321,14 +351,64 @@ export async function getBrandsWithActiveProducts(): Promise<BrandRow[]> {
   }));
 }
 
+/** Prompt 126 (Phase 2) -- the category page's own brand FILTER option
+ *  list, category-SCOPED: only brands with at least one active product
+ *  WITHIN THIS SPECIFIC CATEGORY qualify (not site-wide, unlike
+ *  getBrandsWithActiveProducts above, which /products correctly uses
+ *  because that page shows every category at once). Byte-for-byte the
+ *  same `products!inner(id)` + `.eq("products.is_active", true)`
+ *  technique as getBrandsWithActiveProducts (Prompt 87) -- confirmed
+ *  correct there, reused unchanged -- with exactly one addition:
+ *  `.eq("products.category_id", categoryId)`, the same dot-path filter
+ *  syntax already used on an embedded relation elsewhere in this file
+ *  (e.g. `.eq("product_collections.collection_id", ...)` on
+ *  getCategoryProducts below). A DIFFERENT function rather than adding an
+ *  optional categoryId param to getBrandsWithActiveProducts itself: that
+ *  function's own real caller (/products) must stay site-wide-scoped
+ *  unconditionally, so branching its behavior on an optional param would
+ *  only add a footgun (a missed/undefined categoryId silently falling
+ *  back to "all brands" there) for zero real code reuse benefit -- the
+ *  query bodies already share everything meaningful they can via the
+ *  identical `!inner` pattern; a small dedicated function is clearer than
+ *  a shared one with a conditional filter bolted on. */
+export async function getBrandsWithActiveProductsInCategory(
+  categoryId: string
+): Promise<BrandRow[]> {
+  const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
+    "brands",
+    "products",
+  ]);
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, slug, name_en, name_ar, products!inner(id)")
+    .eq("is_active", true)
+    .eq("products.is_active", true)
+    .eq("products.category_id", categoryId)
+    .order("sort_order", { ascending: true });
+
+  if (error || !data) return [];
+  return data.map(({ id, slug, name_en, name_ar }) => ({
+    id,
+    slug,
+    name_en,
+    name_ar,
+  }));
+}
+
 export async function getCategoryProducts({
   categoryId,
   gender,
   collectionId,
+  brandId,
 }: {
   categoryId: string;
   gender?: ProductGender;
   collectionId?: string | null;
+  /** Prompt 126 (Phase 2) -- optional, additive, same shape as
+   *  getAllActiveProducts' own brandId param (Prompt 87): every existing
+   *  caller omits it and gets byte-for-byte the same unfiltered behavior
+   *  as before this prompt. */
+  brandId?: string | null;
 }): Promise<ProductCardData[]> {
   // Tagged "categories" (Prompt 23 -- PRODUCT_CARD_SELECT embeds
   // category:categories(name_en, name_ar) via a join) AND "products"
@@ -360,6 +440,7 @@ export async function getCategoryProducts({
 
   if (gender) query = query.eq("gender", gender);
   if (collectionId) query = query.eq("product_collections.collection_id", collectionId);
+  if (brandId) query = query.eq("brand_id", brandId);
 
   const { data, error } = await query;
   return error || !data

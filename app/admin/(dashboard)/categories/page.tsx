@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createSessionClient } from "@/lib/supabase/server";
+import { getPublicStorageUrl } from "@/lib/supabase/storage";
 import DeleteCategoryButton from "@/components/admin/DeleteCategoryButton";
 import type { AdminCategoryRow } from "@/types/admin-category";
 
@@ -22,7 +23,9 @@ async function getAllCategories(): Promise<AdminCategoryRow[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id, slug, name_en, name_ar, sort_order, is_active, created_at")
+    .select(
+      "id, slug, name_en, name_ar, sort_order, is_active, created_at, image_storage_path"
+    )
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
@@ -51,6 +54,11 @@ export default async function AdminCategoriesPage() {
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-brand-border text-xs tracking-wide text-brand-gray uppercase">
+                {/* Prompt 125 -- small thumbnail column, same "let the
+                    admin see what's uploaded without clicking into edit"
+                    reasoning as the hero-slides admin list's own image
+                    preview (app/admin/(dashboard)/hero-slides/page.tsx). */}
+                <th className="px-4 py-3 text-start font-medium">Image</th>
                 <th className="px-4 py-3 text-start font-medium">Name</th>
                 <th className="px-4 py-3 text-start font-medium">Slug</th>
                 <th className="px-4 py-3 text-start font-medium">Sort</th>
@@ -64,6 +72,23 @@ export default async function AdminCategoriesPage() {
                   key={category.id}
                   className="border-b border-brand-border last:border-0"
                 >
+                  <td className="px-4 py-3">
+                    <div className="relative h-10 w-14 overflow-hidden rounded-btn bg-brand-surface">
+                      {category.image_storage_path ? (
+                        // Plain <img>, not next/image -- same small
+                        // admin-only preview reasoning as
+                        // HeroSlideForm.tsx's own.
+                        <img
+                          src={getPublicStorageUrl(
+                            "category-images",
+                            category.image_storage_path
+                          )}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-brand-black">
                       {category.name_en}

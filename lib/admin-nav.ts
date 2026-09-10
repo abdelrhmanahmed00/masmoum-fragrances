@@ -65,6 +65,12 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       "The hero banner, experience section image, 2 feature block images, and the closing CTA background photo on the fully custom /private-label landing page.",
   },
   {
+    href: "/admin/perfume-gender",
+    label: "Perfumes Gender Tiles",
+    description:
+      "The 3 Men/Women/Unisex tile images shown on /categories/perfumes before a gender is picked.",
+  },
+  {
     href: "/admin/quote-requests",
     label: "Quote Requests",
     description: "Incoming wholesale inquiries submitted through the site.",

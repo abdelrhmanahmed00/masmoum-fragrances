@@ -17,7 +17,9 @@ export default async function AdminEditCategoryPage({
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id, slug, name_en, name_ar, sort_order, is_active, created_at")
+    .select(
+      "id, slug, name_en, name_ar, sort_order, is_active, created_at, image_storage_path"
+    )
     .eq("id", id)
     .maybeSingle();
 

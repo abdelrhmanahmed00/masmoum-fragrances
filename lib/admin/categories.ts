@@ -8,6 +8,52 @@ import type {
   CategoryFieldErrors,
 } from "@/types/admin-category";
 
+// Prompt 125 -- one optional admin-uploadable image per category (the
+// homepage Category Templates Strip's tile background). Same Storage
+// conventions as every other image-upload feature in this project
+// (hero_slides, product_images, private_label_images): upload FIRST, DB
+// write SECOND, clean up the orphaned upload if the DB write then fails;
+// on replacement, upload the NEW file to a fresh path, only delete the
+// OLD object after the DB row is confirmed pointing at the new one (CDN
+// stale-cache avoidance, Prompt 7's original finding). Image is OPTIONAL
+// on both create and edit -- unlike hero_slides (an imageless slide is
+// meaningless), a category is already a fully meaningful row without one
+// (it has a name, a slug, real products); the homepage strip's own
+// graceful placeholder (matching every other "content not uploaded yet"
+// state in this project) covers the gap until an admin adds one.
+
+const BUCKET = "category-images";
+
+// Must match the bucket's own real limits (0033 migration: file_size_limit
+// = 5242880, allowed_mime_types = the same three keys below).
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function validateImageFile(
+  file: FormDataEntryValue | null
+): { error: string | null; file: File | null } {
+  const provided = file instanceof File && file.size > 0;
+  if (!provided) return { error: null, file: null };
+
+  const validFile = file as File;
+  const extension = EXTENSION_BY_MIME_TYPE[validFile.type];
+  if (!extension) {
+    return {
+      error: "Only JPEG, PNG, or WEBP images are allowed.",
+      file: null,
+    };
+  }
+  if (validFile.size > MAX_FILE_SIZE_BYTES) {
+    return { error: "Must be 5MB or smaller.", file: null };
+  }
+
+  return { error: null, file: validFile };
+}
+
 // Core category mutation logic (Prompt 23), deliberately a plain function
 // that takes an already-constructed Supabase client rather than building
 // its own -- two reasons:
@@ -82,7 +128,10 @@ export async function createCategory(
   formData: FormData
 ): Promise<CategoryActionState> {
   const { fieldErrors, values } = validate(formData);
-  if (!values) {
+  const { error: fileError, file } = validateImageFile(formData.get("image"));
+  if (fileError) fieldErrors.image = fileError;
+
+  if (!values || fileError) {
     return {
       status: "error",
       message: "Please fix the highlighted fields.",
@@ -90,9 +139,31 @@ export async function createCategory(
     };
   }
 
-  const { error } = await supabase.from("categories").insert(values);
+  let image_storage_path: string | null = null;
+  if (file) {
+    const extension = EXTENSION_BY_MIME_TYPE[file.type];
+    const path = `${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (uploadError) {
+      return {
+        status: "error",
+        message: "Something went wrong uploading the image. Please try again.",
+      };
+    }
+    image_storage_path = path;
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .insert({ ...values, image_storage_path });
 
   if (error) {
+    if (image_storage_path) {
+      await supabase.storage.from(BUCKET).remove([image_storage_path]);
+    }
     if (error.code === UNIQUE_VIOLATION) {
       return {
         status: "error",
@@ -115,7 +186,10 @@ export async function updateCategory(
   formData: FormData
 ): Promise<CategoryActionState> {
   const { fieldErrors, values } = validate(formData);
-  if (!values) {
+  const { error: fileError, file } = validateImageFile(formData.get("image"));
+  if (fileError) fieldErrors.image = fileError;
+
+  if (!values || fileError) {
     return {
       status: "error",
       message: "Please fix the highlighted fields.",
@@ -123,13 +197,66 @@ export async function updateCategory(
     };
   }
 
-  const { error } = await supabase
+  // No new image -- update the text/sort/active fields only, the existing
+  // image_storage_path (if any) untouched entirely, same "storage
+  // untouched when no new file is chosen" behavior as
+  // lib/admin/hero-slides.ts's own updateHeroSlide.
+  if (!file) {
+    const { error } = await supabase
+      .from("categories")
+      .update(values)
+      .eq("id", id);
+
+    if (error) {
+      if (error.code === UNIQUE_VIOLATION) {
+        return {
+          status: "error",
+          message: "That slug is already in use by another category.",
+          fieldErrors: { slug: "This slug is already taken." },
+        };
+      }
+      return {
+        status: "error",
+        message: "Something went wrong saving the category. Please try again.",
+      };
+    }
+    return { status: "success" };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
     .from("categories")
-    .update(values)
+    .select("image_storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    return { status: "error", message: "This category no longer exists." };
+  }
+
+  const extension = EXTENSION_BY_MIME_TYPE[file.type];
+  const newPath = `${crypto.randomUUID()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(newPath, file, { contentType: file.type, upsert: false });
+
+  if (uploadError) {
+    return {
+      status: "error",
+      message: "Something went wrong uploading the new image. Please try again.",
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("categories")
+    .update({ ...values, image_storage_path: newPath })
     .eq("id", id);
 
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION) {
+  if (updateError) {
+    // DB row still points at the OLD (still-intact) image (or null) --
+    // clean up only the newly-uploaded, now-orphaned file.
+    await supabase.storage.from(BUCKET).remove([newPath]);
+    if (updateError.code === UNIQUE_VIOLATION) {
       return {
         status: "error",
         message: "That slug is already in use by another category.",
@@ -140,6 +267,22 @@ export async function updateCategory(
       status: "error",
       message: "Something went wrong saving the category. Please try again.",
     };
+  }
+
+  // New image confirmed live in the DB -- now safe to remove the old one,
+  // if there was one. Best-effort: logged, not fatal, same reasoning as
+  // lib/admin/hero-slides.ts's own cleanup step.
+  if (existing.image_storage_path) {
+    const { error: cleanupError } = await supabase.storage
+      .from(BUCKET)
+      .remove([existing.image_storage_path]);
+
+    if (cleanupError) {
+      console.warn(
+        `[categories] Old Storage object cleanup failed for "${existing.image_storage_path}" after replacing category ${id}'s image. File is now orphaned in the bucket.`,
+        cleanupError
+      );
+    }
   }
 
   return { status: "success" };
@@ -176,6 +319,16 @@ export async function deleteCategory(
     };
   }
 
+  // Prompt 125 -- must be read BEFORE the delete below, same ordering as
+  // lib/admin/products.ts's own deleteProduct: once the row is gone,
+  // there's no other way to know which Storage object (if any) needs
+  // cleaning up.
+  const { data: existing } = await supabase
+    .from("categories")
+    .select("image_storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("categories").delete().eq("id", id);
 
   if (error) {
@@ -190,6 +343,23 @@ export async function deleteCategory(
       status: "error",
       message: "Something went wrong deleting the category. Please try again.",
     };
+  }
+
+  // Storage cleanup AFTER the DB delete succeeds -- best-effort, same
+  // reasoning as every other delete-with-image function in this project:
+  // a failed cleanup leaves a harmless orphaned file, not a broken
+  // reference from a delete that only half-completed.
+  if (existing?.image_storage_path) {
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET)
+      .remove([existing.image_storage_path]);
+
+    if (storageError) {
+      console.warn(
+        `[categories] Storage cleanup failed for "${existing.image_storage_path}" after deleting category ${id}.`,
+        storageError
+      );
+    }
   }
 
   return { status: "success" };

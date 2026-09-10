@@ -1,17 +1,27 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import {
   createCategoryAction,
   updateCategoryAction,
 } from "@/app/admin/(dashboard)/categories/actions";
 import { slugify } from "@/lib/slugify";
+import { getPublicStorageUrl } from "@/lib/supabase/storage";
+import { compressImage } from "@/lib/image-compression";
 import FormField from "./FormField";
 import {
   CATEGORY_ACTION_INITIAL_STATE,
   type AdminCategoryRow,
 } from "@/types/admin-category";
+
+// Same 5MB/JPEG-PNG-WEBP limits as the "category-images" Storage bucket's
+// real config (0033 migration) and lib/admin/categories.ts's own
+// server-side re-check -- client-side only for immediate UX feedback,
+// same "advisory, not authoritative" relationship as HeroSlideForm.tsx's
+// own identical check.
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 /**
  * Slug auto-generation UX: while creating (mode="create"), the slug field
@@ -43,7 +53,52 @@ export default function CategoryForm({
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [slugFollowsName, setSlugFollowsName] = useState(mode === "create");
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [clientFileError, setClientFileError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+
   const fieldErrors = state.status === "error" ? state.fieldErrors : undefined;
+
+  // Same compress-then-swap-the-input's-FileList technique as
+  // HeroSlideForm.tsx's own handleFileChange -- see that file's comment
+  // for the full reasoning (Prompt 82). Image is OPTIONAL here (unlike
+  // hero slides), so there's no `required` prop on the <input> below, but
+  // the compression/size-check flow is otherwise identical.
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setClientFileError(null);
+      return;
+    }
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setClientFileError("Only JPEG, PNG, or WEBP images are allowed.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setClientFileError(null);
+
+    setIsCompressing(true);
+    let effectiveFile = file;
+    try {
+      effectiveFile = await compressImage(file);
+    } finally {
+      setIsCompressing(false);
+    }
+
+    if (effectiveFile.size > MAX_FILE_SIZE_BYTES) {
+      setClientFileError(
+        `"${file.name}" is still ${(effectiveFile.size / (1024 * 1024)).toFixed(1)}MB after compression -- the limit is 5MB.`
+      );
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (effectiveFile !== file && fileInputRef.current) {
+      const dt = new DataTransfer();
+      dt.items.add(effectiveFile);
+      fileInputRef.current.files = dt.files;
+    }
+  }
 
   return (
     <form action={formAction} className="max-w-xl space-y-5">
@@ -55,6 +110,56 @@ export default function CategoryForm({
           {state.message}
         </div>
       ) : null}
+
+      <section className="space-y-3">
+        <label htmlFor="image" className="block text-sm font-medium text-brand-black">
+          Tile Image
+        </label>
+        <p className="text-xs text-brand-gray">
+          Shown as the background of this category&apos;s tile on the
+          homepage&apos;s category strip. Optional -- a category with no
+          image yet shows a plain placeholder there until one is uploaded.
+        </p>
+
+        {mode === "edit" && category?.image_storage_path ? (
+          <div className="relative h-24 w-40 overflow-hidden rounded-btn bg-brand-surface">
+            {/* Plain <img>, not next/image -- same small admin-only
+                current-image preview as HeroSlideForm.tsx's own. */}
+            <img
+              src={getPublicStorageUrl(
+                "category-images",
+                category.image_storage_path
+              )}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : null}
+
+        <input
+          ref={fileInputRef}
+          id="image"
+          name="image"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleFileChange}
+          aria-invalid={Boolean(clientFileError || fieldErrors?.image)}
+          className="block w-full text-sm text-brand-black file:me-3 file:rounded-btn file:border file:border-brand-border file:bg-brand-white file:px-3 file:py-1.5 file:text-sm file:text-brand-black hover:file:border-brand-black"
+        />
+        <p className="text-xs text-brand-gray">
+          {mode === "edit" && category?.image_storage_path
+            ? "Leave empty to keep the current image. JPEG, PNG, or WEBP, up to 5MB."
+            : "JPEG, PNG, or WEBP, up to 5MB."}
+        </p>
+        {clientFileError || fieldErrors?.image ? (
+          <p className="text-xs text-red-600">
+            {clientFileError ?? fieldErrors?.image}
+          </p>
+        ) : null}
+        {isCompressing ? (
+          <p className="text-xs text-brand-gray">Compressing image…</p>
+        ) : null}
+      </section>
 
       <FormField
         label="Name (English) *"
@@ -108,10 +213,16 @@ export default function CategoryForm({
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || isCompressing}
           className="rounded-btn border border-brand-black bg-brand-black px-6 py-2.5 text-sm font-medium text-brand-white transition-colors hover:bg-brand-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? "Saving…" : mode === "create" ? "Create Category" : "Save Changes"}
+          {isPending
+            ? "Saving…"
+            : isCompressing
+              ? "Processing…"
+              : mode === "create"
+                ? "Create Category"
+                : "Save Changes"}
         </button>
         <Link
           href="/admin/categories"

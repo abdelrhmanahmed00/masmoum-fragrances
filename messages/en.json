@@ -40,6 +40,9 @@
     "slideLabel": "Slide {number}",
     "shopNow": "Shop Now"
   },
+  "CategoryTemplates": {
+    "heading": "Shop by Category"
+  },
   "Products": {
     "heading": "Our Products",
     "allProductsHeading": "All Products",
@@ -61,7 +64,8 @@
     "collectionLabel": "Collection",
     "allCollections": "All",
     "brandLabel": "Brand",
-    "allBrands": "All"
+    "allBrands": "All",
+    "enter": "Enter"
   },
   "Videos": {
     "heading": "See It In Action",

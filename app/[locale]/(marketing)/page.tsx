@@ -1,5 +1,6 @@
 import { setRequestLocale } from "next-intl/server";
 import Hero from "@/components/home/Hero";
+import CategoryTemplatesStrip from "@/components/home/CategoryTemplatesStrip";
 import ProductsSection from "@/components/home/ProductsSection";
 import VideosSection from "@/components/home/VideosSection";
 import StatsSection from "@/components/home/StatsSection";
@@ -32,6 +33,10 @@ export default async function HomePage({
   return (
     <>
       <Hero />
+      {/* Prompt 125 -- Category Templates Strip (Phase 1). Additive,
+          placed directly after Hero and before ProductsSection ("Our
+          Products") -- both sections coexist. */}
+      <CategoryTemplatesStrip />
       <ProductsSection />
       <VideosSection />
       <StatsSection />

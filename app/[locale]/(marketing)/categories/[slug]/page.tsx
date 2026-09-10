@@ -2,11 +2,14 @@ import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import ProductCard from "@/components/product/ProductCard";
 import FilterGroup from "@/components/product/FilterGroup";
+import PerfumeGenderTemplate from "@/components/category/PerfumeGenderTemplate";
 import {
   getCategoryBySlug,
   getCollectionBySlug,
+  getBrandBySlug,
   getActiveCategorySlugs,
   getActiveCollectionsList,
+  getBrandsWithActiveProductsInCategory,
   getCategoryProducts,
   parseGenderParam,
   VALID_GENDERS,
@@ -48,30 +51,64 @@ export default async function CategoryPage({
   if (!category) notFound();
 
   const t = await getTranslations("Products");
+  const name = locale === "ar" ? category.name_ar : category.name_en;
+  const basePath = `/categories/${slug}`;
 
   const gender = parseGenderParam(sp.gender);
-  const collectionParam = typeof sp.collection === "string" ? sp.collection : undefined;
-  const selectedCollection = collectionParam
-    ? await getCollectionBySlug(collectionParam)
-    : null;
 
   // Gender filter is meaningful for Perfumes only, per the project
   // requirement -- not shown (and not applied, even if present in the
   // URL) on categories like Home Fragrance where it doesn't apply.
   const showGenderFilter = category.slug === "perfumes";
 
-  const [products, collections] = await Promise.all([
+  // Prompt 127 (Phase 3) -- the special Perfumes-only sub-template: no
+  // gender param at all yet (a fresh visit to /categories/perfumes)
+  // renders the 3-tile Men/Women/Unisex picker INSTEAD of the normal
+  // filters+grid, and fetches NOTHING product/collection/brand-related --
+  // this stage shows no products, per the task's own spec, so there's
+  // nothing for those queries to do yet. Scoped by `showGenderFilter`
+  // (i.e. category.slug === "perfumes"), so every other category page
+  // never even evaluates this branch differently than it did before this
+  // prompt. Once a real gender value IS present in the URL (any of the 3
+  // tiles, or a direct link/bookmark), this condition is false and
+  // everything below runs exactly as it already did pre-Prompt-127 --
+  // the gender-filtered grid + brand filter row (Phase 2) are PURE
+  // navigation targets, no new filtering logic was added to them.
+  if (showGenderFilter && !gender) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 pb-12 pt-header-offset lg:pt-header-offset-lg md:pb-16 lg:px-8">
+        <h1 className="mb-8 text-center text-2xl font-medium text-brand-black md:text-3xl">
+          {name}
+        </h1>
+        <PerfumeGenderTemplate basePath={basePath} />
+      </div>
+    );
+  }
+
+  const collectionParam = typeof sp.collection === "string" ? sp.collection : undefined;
+  const brandParam = typeof sp.brand === "string" ? sp.brand : undefined;
+  const [selectedCollection, selectedBrand] = await Promise.all([
+    collectionParam ? getCollectionBySlug(collectionParam) : Promise.resolve(null),
+    brandParam ? getBrandBySlug(brandParam) : Promise.resolve(null),
+  ]);
+
+  const [products, collections, brands] = await Promise.all([
     getCategoryProducts({
       categoryId: category.id,
       gender: showGenderFilter ? gender : undefined,
       collectionId: selectedCollection?.id ?? null,
+      brandId: selectedBrand?.id ?? null,
     }),
     getActiveCollectionsList(),
+    // Prompt 126 (Phase 2) -- category-SCOPED, not
+    // getBrandsWithActiveProducts' site-wide list (that's /products' own
+    // function, reused as-is there, untouched here).
+    getBrandsWithActiveProductsInCategory(category.id),
   ]);
 
-  const name = locale === "ar" ? category.name_ar : category.name_en;
-  const hasFilters = Boolean((showGenderFilter && gender) || selectedCollection);
-  const basePath = `/categories/${slug}`;
+  const hasFilters = Boolean(
+    (showGenderFilter && gender) || selectedCollection || selectedBrand
+  );
 
   return (
     // Prompt 57 split this into pb-12/pt-header-offset/md:pb-16 -- the
@@ -88,8 +125,35 @@ export default async function CategoryPage({
         {name}
       </h1>
 
-      {showGenderFilter || collections.length > 0 ? (
+      {showGenderFilter || collections.length > 0 || brands.length > 0 ? (
         <div className="mb-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+          {/* Prompt 126 (Phase 2) -- placed FIRST in this row, ahead of
+              the pre-existing gender/collection filters: it reuses
+              FilterGroup's bolder "pill" variant (ProductTabs.tsx's own
+              bordered-pill look, same as /products' own brand filter,
+              Prompt 87), which visually reads as more prominent than the
+              plainer "filled" gender/collection filters next to it --
+              leading with the visually-heavier control creates a
+              deliberate hierarchy (brand first, then the finer-grained
+              gender/collection refinements) rather than an arbitrary
+              order. The existing filters' own appearance/order relative
+              to EACH OTHER is completely untouched. */}
+          {brands.length > 0 ? (
+            <FilterGroup
+              label={t("brandLabel")}
+              allLabel={t("allBrands")}
+              basePath={basePath}
+              paramKey="brand"
+              currentValue={brandParam}
+              options={brands.map((brand) => ({
+                value: brand.slug,
+                label: locale === "ar" ? brand.name_ar : brand.name_en,
+              }))}
+              preserveParams={{ gender, collection: collectionParam }}
+              variant="pill"
+            />
+          ) : null}
+
           {showGenderFilter ? (
             <FilterGroup
               label={t("genderLabel")}
@@ -101,7 +165,7 @@ export default async function CategoryPage({
                 value: g,
                 label: t(`gender.${g}`),
               }))}
-              preserveParams={{ collection: collectionParam }}
+              preserveParams={{ collection: collectionParam, brand: brandParam }}
             />
           ) : null}
 
@@ -116,7 +180,7 @@ export default async function CategoryPage({
                 value: c.slug,
                 label: locale === "ar" ? c.name_ar : c.name_en,
               }))}
-              preserveParams={{ gender }}
+              preserveParams={{ gender, brand: brandParam }}
             />
           ) : null}
         </div>

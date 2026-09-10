@@ -40,6 +40,9 @@
     "slideLabel": "الشريحة {number}",
     "shopNow": "تسوق الآن"
   },
+  "CategoryTemplates": {
+    "heading": "تسوق حسب الفئة"
+  },
   "Products": {
     "heading": "منتجاتنا",
     "allProductsHeading": "جميع المنتجات",
@@ -61,7 +64,8 @@
     "collectionLabel": "التشكيلة",
     "allCollections": "الكل",
     "brandLabel": "العلامة التجارية",
-    "allBrands": "الكل"
+    "allBrands": "الكل",
+    "enter": "دخول"
   },
   "Videos": {
     "heading": "شاهدها عن قرب",
