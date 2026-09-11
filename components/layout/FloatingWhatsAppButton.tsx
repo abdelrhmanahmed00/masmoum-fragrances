@@ -46,9 +46,12 @@ import { getWhatsAppNumber, buildWhatsAppHref } from "@/lib/whatsapp";
  * comment cites this exact number, h-11/w-11), matching the conventional
  * size for a WhatsApp-style floating action button.
  *
- * Renders nothing when contact_whatsapp is unset -- same graceful-
- * disable pattern as every other WhatsApp touchpoint in this project
- * (Footer.tsx's own two whatsapp-gated blocks).
+ * Renders nothing when contact_whatsapp_floating is unset -- same
+ * graceful-disable pattern as every other WhatsApp touchpoint in this
+ * project (Footer.tsx's own two whatsapp-gated blocks). Prompt 130: this
+ * is now its OWN independent number, separate from the Footer's
+ * contact_whatsapp -- each hides independently; there is no longer a
+ * "both set or both hidden" coupling between the two.
  *
  * No pre-filled message (unlike Footer's own "Quick Price Inquiry" link)
  * -- buildWhatsAppHref is called with no second argument, per this
@@ -58,7 +61,7 @@ import { getWhatsAppNumber, buildWhatsAppHref } from "@/lib/whatsapp";
 export default async function FloatingWhatsAppButton() {
   const locale = await getLocale();
   const t = await getTranslations("Footer");
-  const whatsapp = await getWhatsAppNumber(locale);
+  const whatsapp = await getWhatsAppNumber(locale, "contact_whatsapp_floating");
 
   if (!whatsapp) return null;
 

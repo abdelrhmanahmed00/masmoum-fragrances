@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import Reveal from "@/components/private-label/Reveal";
 
 /**
@@ -184,6 +185,31 @@ export default async function PrivateLabelFeatureBlock({
           </svg>
         </div>
       )}
+
+      {/* Prompt 138 -- "Start Your Design" CTA, same treatment as
+          PrivateLabelExperience.tsx's own (see that file's own comment
+          for the full reasoning: a Reveal-sibling, not a Reveal-child, so
+          it can't interfere with the image's own reveal transition;
+          HeroSlider.tsx's real overlay-gradient + gold-pill-button
+          convention reused verbatim). Shared by both Block A and Block B
+          via this one component -- independent of the `background` prop,
+          since the overlay always sits directly on the photo itself, not
+          the section's own background. */}
+      {imageUrl ? (
+        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-brand-black/60 via-transparent to-transparent p-5 md:p-6">
+          <Reveal variant="fade-up" className="space-y-2">
+            <p className="text-[12px] font-medium tracking-[0.12em] text-brand-gold uppercase">
+              {t("customBottlesTagline")}
+            </p>
+            <Link
+              href="/design-your-bottle"
+              className="inline-block rounded-full border border-brand-black/60 bg-brand-gold px-6 py-2.5 text-sm font-medium text-brand-black shadow-lg transition-colors hover:border-brand-black hover:bg-brand-black hover:text-brand-gold"
+            >
+              {t("startYourDesign")}
+            </Link>
+          </Reveal>
+        </div>
+      ) : null}
     </div>
   );
 

@@ -21,6 +21,12 @@ export const CONTACT_SETTING_KEYS = [
   "contact_email",
   "contact_phone",
   "contact_whatsapp",
+  // Prompt 130 -- a SECOND, independent WhatsApp number for the site-wide
+  // floating button (FloatingWhatsAppButton.tsx), separate from
+  // contact_whatsapp above, which the Footer's own two WhatsApp links
+  // keep using unchanged. See the 0035 migration's own comment for why
+  // this is a new key rather than reusing contact_whatsapp.
+  "contact_whatsapp_floating",
 ] as const;
 
 // Prompt 44 -- URLs, not locale-dependent text. Each uses value_en as its
@@ -45,6 +51,8 @@ type SiteSettingsInput = {
   contact_phone_ar: string | null;
   contact_whatsapp_en: string | null;
   contact_whatsapp_ar: string | null;
+  contact_whatsapp_floating_en: string | null;
+  contact_whatsapp_floating_ar: string | null;
   social_instagram_url: string | null;
   social_facebook_url: string | null;
   social_tiktok_url: string | null;
@@ -73,15 +81,16 @@ function isValidUrl(value: string): boolean {
  *     the public quote form) -- an email either looks like an email or it
  *     doesn't, and a malformed one saved here would silently break the
  *     Footer's `mailto:` link.
- *   - contact_phone_en/ar, contact_whatsapp_en/ar: NO format regex.
+ *   - contact_phone_en/ar, contact_whatsapp_en/ar,
+ *     contact_whatsapp_floating_en/ar: NO format regex.
  *     International B2B contact numbers vary too widely (country code
  *     with/without `+`, spaces, dashes, extensions) for a strict pattern
  *     to not risk rejecting a real, legitimate number the admin actually
  *     wants to enter. trimmedOrNull already answers the only question
- *     that matters here ("was something entered"); the Footer just
- *     renders whatever string is saved as-is (as a `tel:`/`wa.me` link
- *     target), so an overly strict validator would only get in the way,
- *     not prevent a real problem.
+ *     that matters here ("was something entered"); the Footer/floating
+ *     button just render whatever string is saved as-is (as a `tel:`/
+ *     `wa.me` link target), so an overly strict validator would only get
+ *     in the way, not prevent a real problem.
  *   - social_instagram_url/facebook_url/tiktok_url: loose URL-shape check
  *     (isValidUrl above) -- a real, checkable minimum ("does this look
  *     like a link at all"), but not locked to a specific domain per
@@ -103,6 +112,12 @@ function validate(formData: FormData): {
   const contact_phone_ar = trimmedOrNull(formData.get("contact_phone_ar"));
   const contact_whatsapp_en = trimmedOrNull(formData.get("contact_whatsapp_en"));
   const contact_whatsapp_ar = trimmedOrNull(formData.get("contact_whatsapp_ar"));
+  const contact_whatsapp_floating_en = trimmedOrNull(
+    formData.get("contact_whatsapp_floating_en")
+  );
+  const contact_whatsapp_floating_ar = trimmedOrNull(
+    formData.get("contact_whatsapp_floating_ar")
+  );
   const social_instagram_url = trimmedOrNull(formData.get("social_instagram_url"));
   const social_facebook_url = trimmedOrNull(formData.get("social_facebook_url"));
   const social_tiktok_url = trimmedOrNull(formData.get("social_tiktok_url"));
@@ -137,6 +152,8 @@ function validate(formData: FormData): {
       contact_phone_ar,
       contact_whatsapp_en,
       contact_whatsapp_ar,
+      contact_whatsapp_floating_en,
+      contact_whatsapp_floating_ar,
       social_instagram_url,
       social_facebook_url,
       social_tiktok_url,
@@ -185,6 +202,11 @@ export async function updateSiteSettings(
     { key: "contact_email", value_en: values.contact_email_en, value_ar: values.contact_email_ar },
     { key: "contact_phone", value_en: values.contact_phone_en, value_ar: values.contact_phone_ar },
     { key: "contact_whatsapp", value_en: values.contact_whatsapp_en, value_ar: values.contact_whatsapp_ar },
+    {
+      key: "contact_whatsapp_floating",
+      value_en: values.contact_whatsapp_floating_en,
+      value_ar: values.contact_whatsapp_floating_ar,
+    },
     { key: "social_instagram_url", value_en: values.social_instagram_url, value_ar: null },
     { key: "social_facebook_url", value_en: values.social_facebook_url, value_ar: null },
     { key: "social_tiktok_url", value_en: values.social_tiktok_url, value_ar: null },

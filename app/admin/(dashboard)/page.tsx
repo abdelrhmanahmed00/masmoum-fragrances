@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ADMIN_SECTIONS } from "@/lib/admin-nav";
 import { createSessionClient } from "@/lib/supabase/server";
 import { getNewQuoteRequestCount } from "@/lib/admin/quote-requests";
+import { getNewDesignRequestCount } from "@/lib/admin/design-requests";
 
 // Prompt 22's original reasoning (kept for context, now partly
 // superseded): no counts anywhere, because 6 of the 7 areas were
@@ -20,6 +21,12 @@ import { getNewQuoteRequestCount } from "@/lib/admin/quote-requests";
 // on their own list pages, with no "needs action" framing behind the
 // number -- adding them everywhere would be the same noise Prompt 22
 // rejected, just with real data instead of zeros.
+//
+// Prompt 138: Design Requests is the SAME kind of inquiry inbox as Quote
+// Requests (a customer-submitted record needing a first response) --
+// genuinely analogous, not just "another section," so it gets the
+// identical badge treatment rather than being left out for consistency's
+// own sake.
 export const metadata: Metadata = {
   title: "Dashboard — Masmoum Admin",
   robots: { index: false, follow: false },
@@ -27,7 +34,10 @@ export const metadata: Metadata = {
 
 export default async function AdminDashboardPage() {
   const supabase = await createSessionClient();
-  const newQuoteRequestCount = await getNewQuoteRequestCount(supabase);
+  const [newQuoteRequestCount, newDesignRequestCount] = await Promise.all([
+    getNewQuoteRequestCount(supabase),
+    getNewDesignRequestCount(supabase),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
@@ -52,6 +62,12 @@ export default async function AdminDashboardPage() {
               newQuoteRequestCount > 0 ? (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                   {newQuoteRequestCount} new
+                </span>
+              ) : null}
+              {section.href === "/admin/design-requests" &&
+              newDesignRequestCount > 0 ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  {newDesignRequestCount} new
                 </span>
               ) : null}
             </div>

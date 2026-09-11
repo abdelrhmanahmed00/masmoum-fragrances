@@ -83,7 +83,23 @@ function securityHeaders(): Record<string, string> {
     // at all until Prompt 37, which added real <video> playback but never
     // revisited this CSP (set up earlier, before videos were a concern).
     `media-src 'self' https://${supabaseHostname}`,
-    `connect-src 'self' https://${supabaseHostname} https://www.facebook.com`,
+    // Prompt 136: `blob:` added for the Custom Bottle Designer's
+    // submission flow (lib/design-requests.ts) -- it calls
+    // `fetch(activeLogoUrl)` on the customer's own local blob: object URL
+    // (recovering the exact Blob an <img src="blob:..."> is already
+    // showing, to re-upload it) purely to read it back as a Blob, no
+    // network request actually leaves the browser. `img-src` below
+    // already allowed `blob:` (every <img src="blob:..."> on this page
+    // needs it), but `fetch()`/XHR is governed by `connect-src`
+    // specifically, which did NOT -- confirmed for real, not assumed: a
+    // real Playwright run against this exact flow hit a genuine "Failed
+    // to fetch" + CSP violation console error before this line was
+    // added, not a hypothetical. `blob:` here is inherently narrow/safe
+    // the same way it already is in img-src -- a blob: URL only ever
+    // resolves to a same-origin object this browser tab itself created,
+    // never an external endpoint, so this doesn't open any new
+    // cross-origin surface.
+    `connect-src 'self' blob: https://${supabaseHostname} https://www.facebook.com`,
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

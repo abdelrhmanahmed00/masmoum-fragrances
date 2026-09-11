@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import Reveal from "@/components/private-label/Reveal";
 
 // Same checkmark glyph shape as the reference's own icon-list widget
@@ -178,6 +179,42 @@ export default async function PrivateLabelExperience({
             </svg>
           </div>
         )}
+
+        {/* Prompt 138 -- "Start Your Design" CTA. A SIBLING of the
+            Reveal-wrapped Image above, not a child of it -- structurally
+            cannot interfere with that Reveal's own transform/opacity
+            transition (a separate Reveal instance below has its own
+            independent ref/IntersectionObserver/state, see Reveal.tsx's
+            own hook). Reuses this project's established overlay-on-image
+            CTA treatment verbatim: the bottom gradient
+            (`bg-gradient-to-t from-brand-black/60 via-transparent
+            to-transparent`) and the gold pill button
+            (`rounded-full border border-brand-black/60 bg-brand-gold ...
+            hover:bg-brand-black hover:text-brand-gold`) are both HeroSlider.tsx's
+            own real "Shop Now" treatment, not a new pattern -- only the
+            button's padding is slightly reduced (px-6/py-2.5 vs.
+            px-8/py-3) to suit this section's smaller image footprint.
+            The eyebrow tagline reuses this same page's own established
+            small-caps treatment (text-[12px]/[14px] tracking-[0.12em]
+            uppercase text-brand-gold), already used twice on this page
+            (PrivateLabelHero's tagline, PrivateLabelFeatureBlock's
+            craftedSubtitle) -- a third consistent instance, not a fourth
+            new one. */}
+        {imageUrl ? (
+          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-brand-black/60 via-transparent to-transparent p-5 md:p-6">
+            <Reveal variant="fade-up" className="space-y-2">
+              <p className="text-[12px] font-medium tracking-[0.12em] text-brand-gold uppercase">
+                {t("customBottlesTagline")}
+              </p>
+              <Link
+                href="/design-your-bottle"
+                className="inline-block rounded-full border border-brand-black/60 bg-brand-gold px-6 py-2.5 text-sm font-medium text-brand-black shadow-lg transition-colors hover:border-brand-black hover:bg-brand-black hover:text-brand-gold"
+              >
+                {t("startYourDesign")}
+              </Link>
+            </Reveal>
+          </div>
+        ) : null}
       </div>
     </section>
   );

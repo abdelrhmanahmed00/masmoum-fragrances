@@ -12,22 +12,36 @@ function normalize(value: string | null | undefined): string | null {
 }
 
 /**
- * The real contact_whatsapp number, or null when unconfigured -- a small,
- * single-key dedicated reader, same pattern as lib/meta-pixel.ts's
+ * A single site_settings WhatsApp number, or null when unconfigured -- a
+ * small, single-key dedicated reader, same pattern as lib/meta-pixel.ts's
  * getMetaPixelId (its own file, one narrow SELECT, tagged cache).
  *
- * Footer.tsx already fetches this same value as part of its own broader
- * getContactSettings() multi-key query, but that function is private to
- * Footer.tsx, and Footer itself is mounted with no props from the root
- * layout. FloatingWhatsAppButton (Prompt 122) needs the same value
- * independently at the LAYOUT level, alongside Footer, not through it --
- * so this gets its own minimal query rather than plumbing Footer's
- * internal helper up through props for one field it doesn't otherwise
- * need. Tagged "site_settings" -- the SAME tag Footer's own query already
- * uses, and every site_settings admin mutation already calls updateTag()
- * on (lib/admin/site-settings.ts) -- so no new cache-invalidation wiring
- * is needed for this to stay fresh; it revalidates on exactly the same
- * schedule/trigger Footer's own WhatsApp links already do.
+ * `key` is a real parameter, not hardcoded to "contact_whatsapp" --
+ * Prompt 130 adds a SECOND, independent WhatsApp number
+ * ("contact_whatsapp_floating") for the floating button, separate from
+ * the Footer's own "contact_whatsapp". Parameterizing this ONE function
+ * (rather than adding a near-duplicate second function) is deliberate:
+ * the query/locale-fallback logic is identical for both numbers, only
+ * which row gets selected differs -- the same "don't duplicate what's
+ * genuinely the same logic" discipline this file's own buildWhatsAppHref
+ * comment already established. FloatingWhatsAppButton.tsx is this
+ * function's only call site, so making `key` required (not defaulted) is
+ * a deliberate choice too: an explicit key at the one call site is safer
+ * than a default that could silently point at the wrong number if a
+ * second call site is ever added without thinking about which key it
+ * needs.
+ *
+ * Footer.tsx does NOT call this function -- it fetches contact_whatsapp
+ * as part of its own broader getContactSettings() multi-key query
+ * (unchanged by this prompt), because that function is private to
+ * Footer.tsx and Footer itself is mounted with no props from the root
+ * layout. FloatingWhatsAppButton needs its OWN key independently at the
+ * LAYOUT level, alongside Footer, not through it.
+ *
+ * Tagged "site_settings" -- the SAME tag Footer's own query already uses,
+ * and every site_settings admin mutation already calls updateTag() on
+ * (lib/admin/site-settings.ts) -- so no new cache-invalidation wiring is
+ * needed for either number to stay fresh.
  *
  * Locale-preference-with-fallback: byte-for-byte the same rule as
  * Footer.tsx's pickLocalizedSetting (current locale's value first, the
@@ -35,14 +49,17 @@ function normalize(value: string | null | undefined): string | null {
  * a single-key query instead of Footer's multi-key one, not a different
  * rule invented for this one field.
  */
-export async function getWhatsAppNumber(locale: string): Promise<string | null> {
+export async function getWhatsAppNumber(
+  locale: string,
+  key: "contact_whatsapp" | "contact_whatsapp_floating"
+): Promise<string | null> {
   const supabase = createPublicClient(REVALIDATE_SECONDS.siteSettings, [
     "site_settings",
   ]);
   const { data, error } = await supabase
     .from("site_settings")
     .select("value_en, value_ar")
-    .eq("key", "contact_whatsapp")
+    .eq("key", key)
     .maybeSingle();
 
   if (error || !data) return null;

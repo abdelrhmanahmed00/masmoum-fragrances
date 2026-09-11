@@ -6,7 +6,9 @@ export type StorageBucket =
   | "home-videos"
   | "private-label-images"
   | "category-images"
-  | "perfume-gender-images";
+  | "perfume-gender-images"
+  | "bottle-color-images"
+  | "design-requests";
 
 /**
  * Builds the public URL for an object in a public Supabase Storage bucket

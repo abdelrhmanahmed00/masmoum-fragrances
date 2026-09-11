@@ -71,8 +71,20 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       "The 3 Men/Women/Unisex tile images shown on /categories/perfumes before a gender is picked.",
   },
   {
+    href: "/admin/bottle-colors",
+    label: "Bottle Colors",
+    description:
+      "The 5 pre-colored bottle images (Yellow/Blue/Fuchsia/Pink/Green caps) used by the Custom Bottle Designer at /design-your-bottle.",
+  },
+  {
     href: "/admin/quote-requests",
     label: "Quote Requests",
     description: "Incoming wholesale inquiries submitted through the site.",
+  },
+  {
+    href: "/admin/design-requests",
+    label: "Design Requests",
+    description:
+      "Custom bottle designs submitted through the Custom Bottle Designer — composite image, logo, bottle color, and note.",
   },
 ];

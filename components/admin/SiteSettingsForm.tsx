@@ -118,15 +118,19 @@ export default function SiteSettingsForm({
       <section className="space-y-5">
         <div>
           <h2 className="text-sm font-semibold tracking-wide text-brand-black uppercase">
-            WhatsApp
+            Footer WhatsApp Number
           </h2>
           <p className="mt-1 text-xs text-brand-gray">
-            Used to build a wa.me link (non-digit characters are stripped
-            automatically for the link itself). Prompt 44 fix: the
-            Footer now shows only the word &quot;WhatsApp&quot; as the
-            visible link text -- this number is never displayed publicly,
-            only used as the link target. Same loose format rule as
-            phone above.
+            Used to build a wa.me link for the Footer&apos;s two WhatsApp
+            links (the plain &quot;WhatsApp&quot; link and the
+            &quot;Quick Price Inquiry&quot; link) -- non-digit characters
+            are stripped automatically for the link itself. This number
+            is never displayed publicly, only used as the link target.
+            Same loose format rule as phone above. Prompt 130 -- renamed
+            from plain &quot;WhatsApp&quot; now that there are two
+            independent WhatsApp numbers (see the floating button&apos;s
+            own number below); this field&apos;s own value and behavior
+            are otherwise completely unchanged.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -139,6 +143,36 @@ export default function SiteSettingsForm({
             label="Arabic"
             name="contact_whatsapp_ar"
             defaultValue={valueFor(settings, "contact_whatsapp", "value_ar")}
+            dir="rtl"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-sm font-semibold tracking-wide text-brand-black uppercase">
+            Floating Button WhatsApp Number
+          </h2>
+          <p className="mt-1 text-xs text-brand-gray">
+            Prompt 130 -- a SEPARATE, independent number for the
+            persistent floating WhatsApp button shown in the bottom-right
+            corner of every public page. Not tied to the Footer number
+            above -- each can be set, left empty, or changed
+            independently; the floating button disappears gracefully if
+            this one is empty, the same way the Footer&apos;s WhatsApp
+            links disappear if THEIR number is empty.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <FormField
+            label="English"
+            name="contact_whatsapp_floating_en"
+            defaultValue={valueFor(settings, "contact_whatsapp_floating", "value_en")}
+          />
+          <FormField
+            label="Arabic"
+            name="contact_whatsapp_floating_ar"
+            defaultValue={valueFor(settings, "contact_whatsapp_floating", "value_ar")}
             dir="rtl"
           />
         </div>
