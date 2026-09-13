@@ -71,6 +71,15 @@ export async function POST() {
   revalidatePath("/ar/products");
   revalidatePath("/en");
   revalidatePath("/ar");
+  // Broader forms too, in case the literal-path form doesn't match how
+  // next-intl's routing causes this cache entry to actually be keyed
+  // internally: the route-FILE-pattern form (with and without the
+  // (marketing) route group), and finally the entire [locale] layout
+  // subtree as a last resort ("Revalidating all data" pattern from the
+  // docs).
+  revalidatePath("/[locale]/products", "page");
+  revalidatePath("/[locale]/(marketing)/products", "page");
+  revalidatePath("/[locale]", "layout");
 
   return NextResponse.json({ status: "done" });
 }
