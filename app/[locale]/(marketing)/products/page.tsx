@@ -74,8 +74,9 @@ export default async function AllProductsPage({
     // heights, no rounding (globals.css has the full arithmetic) --
     // pb-12/md:pb-16 keeps the original bottom rhythm.
     <div className="mx-auto max-w-7xl px-4 pb-12 pt-header-offset lg:pt-header-offset-lg md:pb-16 lg:px-8">
-      {/* PROMPT147_DEPLOY_MARKER -- temporary, removed with the rest of
-          this prompt's diagnostic scaffolding */}
+      {/* temporary, removed with the rest of this prompt's diagnostic
+          scaffolding */}
+      <span data-prompt147-marker="deploy-check-v2" style={{ display: "none" }} />
       <h1 className="mb-8 text-center text-2xl font-medium text-brand-black md:text-3xl">
         {t("allProductsHeading")}
       </h1>
