@@ -77,6 +77,15 @@ export default async function AllProductsPage({
       {/* temporary, removed with the rest of this prompt's diagnostic
           scaffolding */}
       <span data-prompt147-marker="deploy-check-v2" style={{ display: "none" }} />
+      <pre data-prompt147-debug style={{ fontSize: 10 }}>
+        {JSON.stringify(
+          products
+            .filter((p) =>
+              ["031", "038"].includes(p.slug)
+            )
+            .map((p) => ({ slug: p.slug, imageUrl: p.imageUrl }))
+        )}
+      </pre>
       <h1 className="mb-8 text-center text-2xl font-medium text-brand-black md:text-3xl">
         {t("allProductsHeading")}
       </h1>
