@@ -18,8 +18,20 @@ import { revalidateTag } from "next/cache";
 // request to the live masmoum-fragrances-iota.vercel.app deployment --
 // not localhost.
 export async function POST() {
-  revalidateTag("products", "max");
-  revalidateTag("categories", "max");
-  revalidateTag("brands", "max");
+  // { expire: 0 } (not "max"): confirmed via a real, failed first attempt
+  // with "max" that stale-while-revalidate semantics do NOT reliably
+  // self-heal a fully dynamic (searchParams-driven, x-vercel-cache: MISS
+  // every request) route within a practical number of requests/wait time
+  // -- the Next 16 docs (revalidateTag.md) explicitly call this out:
+  // "max" marks the tag stale and only revalidates in the BACKGROUND on
+  // next visit, so the SAME visit (and, empirically here, several
+  // subsequent ones) can keep serving the old response. The docs
+  // explicitly recommend { expire: 0 } for exactly this situation --
+  // "webhooks or third-party services that need immediate expiration" --
+  // which forces the next request to be a real blocking cache miss
+  // instead of stale-then-eventually-maybe-fresh.
+  revalidateTag("products", { expire: 0 });
+  revalidateTag("categories", { expire: 0 });
+  revalidateTag("brands", { expire: 0 });
   return NextResponse.json({ status: "done" });
 }
