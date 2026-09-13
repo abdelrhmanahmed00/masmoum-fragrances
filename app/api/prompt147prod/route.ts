@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, revalidatePath } from "next/cache";
 import { getAllActiveProducts } from "@/lib/catalog";
 
 // Diagnostic only (Prompt 147): calls the EXACT same function the
@@ -48,5 +48,21 @@ export async function POST() {
   revalidateTag("products", { expire: 0 });
   revalidateTag("categories", { expire: 0 });
   revalidateTag("brands", { expire: 0 });
+
+  // Confirmed via a real diagnostic (this route's own GET handler): the
+  // underlying data layer (getAllActiveProducts) already returns fresh
+  // image URLs after the revalidateTag calls above, but the /products
+  // page's own RENDERED OUTPUT stayed stale regardless -- revalidateTag
+  // only busts the Data Cache (the fetch results), not a page's own
+  // render cache; revalidatePath is the separate primitive for that (see
+  // revalidatePath.md's own "Relationship with revalidateTag" section).
+  // Literal paths (not the '/[locale]/products','page' pattern form) --
+  // unambiguous, no doubt about whether the (marketing) route group
+  // needs to be included in the pattern.
+  revalidatePath("/en/products");
+  revalidatePath("/ar/products");
+  revalidatePath("/en");
+  revalidatePath("/ar");
+
   return NextResponse.json({ status: "done" });
 }
