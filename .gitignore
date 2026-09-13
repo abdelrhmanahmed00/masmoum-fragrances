@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local drop folder for real product photos the client sends, before
+# they're uploaded through the real admin path -- never meant to be
+# committed
+/product-images-inbox/
