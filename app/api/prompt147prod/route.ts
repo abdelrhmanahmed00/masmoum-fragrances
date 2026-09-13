@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { revalidateTag, revalidatePath } from "next/cache";
-import { getAllActiveProducts } from "@/lib/catalog";
+import { getAllActiveProducts, getBrandsWithActiveProducts } from "@/lib/catalog";
 
 // Diagnostic only (Prompt 147): calls the EXACT same function the
 // /products listing page calls, directly, so its real output on
 // production can be inspected without going through page rendering.
 export async function GET() {
-  const products = await getAllActiveProducts();
+  // Mode B: reproduce page.tsx's exact call shape -- Promise.all
+  // preamble with getBrandsWithActiveProducts() running alongside, then
+  // getAllActiveProducts({ brandId: null }) (not the zero-arg call) --
+  // to test whether that specific shape reproduces the staleness seen
+  // on the real page but NOT on this route's simpler zero-arg call.
+  const [, products] = await Promise.all([
+    getBrandsWithActiveProducts(),
+    getAllActiveProducts({ brandId: null }),
+  ]);
   const target = products.filter((p) =>
     ["031", "032", "033", "034", "035", "036", "037", "038"].includes(p.slug)
   );
