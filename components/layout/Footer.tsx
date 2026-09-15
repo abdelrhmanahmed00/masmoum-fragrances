@@ -285,13 +285,26 @@ export default async function Footer() {
 
           {/* Contact — email/phone/whatsapp are dashboard-editable
               (site_settings table); each line only renders once a real
-              value has been entered. */}
+              value has been entered.
+              Prompt 152: this block used to open with a hardcoded, static
+              "contactCountry" line reading "United Arab Emirates" --
+              wrong (the business operates in Syria and Egypt, never the
+              UAE) and, on inspection, not even the site's real source of
+              truth for location: FooterContactAccordion just above (the
+              expandable "Contact Us" support link, same t("contactHeading")
+              label) already renders the ACCURATE, CMS-editable Syria +
+              Egypt addresses from the "about" page's own footer_summary.
+              Removed rather than corrected to "Syria" -- swapping one
+              hardcoded single-country string for another would still be
+              wrong (the business is in both Syria AND Egypt) and would
+              leave two competing, redundant sources of location text in
+              the same footer. Almost certainly an unedited leftover from
+              the reference site this design was built from. */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-brand-black">
               {t("contactHeading")}
             </h3>
             <div className="space-y-2 text-sm text-brand-gray">
-              <p>{t("contactCountry")}</p>
               {email ? (
                 <p>
                   {t("contactEmailLabel")}:{" "}
