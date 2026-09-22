@@ -6,18 +6,22 @@ import { VALID_GENDERS } from "@/lib/catalog";
 
 /**
  * Prompt 127 (Phase 3) -- the "Perfumes" category's special intermediate
- * sub-template: 3 large gender tiles (Men / Women / Unisex), shown INSTEAD
- * of the normal product grid when /categories/perfumes is visited with no
- * ?gender= param. Scoped entirely to the "perfumes" slug -- every other
- * category page is completely unaffected, since this component is only
- * ever rendered by that one page's own slug check (see
+ * sub-template: large gender tiles (Men / Women / Unisex, + Kids as of
+ * Prompt 170), shown INSTEAD of the normal product grid when
+ * /categories/perfumes is visited with no ?gender= param. Scoped entirely
+ * to the "perfumes" slug -- every other category page is completely
+ * unaffected, since this component is only ever rendered by that one
+ * page's own slug check (see
  * app/[locale]/(marketing)/categories/[slug]/page.tsx).
  *
  * Deliberately reuses `VALID_GENDERS` (lib/catalog.ts, Prompt 9) for the
- * tile ORDER/VALUES rather than hardcoding ["men","women","unisex"] a
- * second time -- if that array's order or membership ever changes, this
- * template follows automatically, same "single source of truth" reasoning
- * as PERFUME_GENDER_SLOTS itself using the identical string values.
+ * tile ORDER/VALUES/COUNT rather than hardcoding ["men","women","unisex"]
+ * a second time -- if that array's order or membership ever changes
+ * (as it did in Prompt 170, adding "kids"), this template follows
+ * automatically, same "single source of truth" reasoning as
+ * PERFUME_GENDER_SLOTS itself using the identical string values. The grid
+ * below is written to size itself off VALID_GENDERS.length rather than a
+ * hardcoded 3-column assumption, for the same reason.
  *
  * Each tile links to `${basePath}?gender=<value>` -- PURE navigation into
  * the category page's own already-working gender-filtered product grid
@@ -41,7 +45,13 @@ export default async function PerfumeGenderTemplate({
   const images = await getPerfumeGenderImageMap();
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    // 1 column on mobile (unchanged from the original 3-tile layout), a
+    // 2x2 grid on tablet, and all 4 tiles in one row on desktop -- same
+    // 3-breakpoint large-panel progression Footer.tsx's own 4-column
+    // section already uses (grid-cols-1 sm:grid-cols-2 lg:grid-cols-4),
+    // not the smaller product-card grid's 2/4 breakpoints (those panels
+    // are much narrower and don't carry a centered text overlay).
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {VALID_GENDERS.map((gender) => {
         const imageUrl = images[gender];
         return (

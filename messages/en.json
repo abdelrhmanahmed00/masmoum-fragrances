@@ -58,7 +58,8 @@
     "gender": {
       "men": "Men",
       "women": "Women",
-      "unisex": "Unisex"
+      "unisex": "Unisex",
+      "kids": "Kids"
     },
     "collectionLabel": "Collection",
     "allCollections": "All",

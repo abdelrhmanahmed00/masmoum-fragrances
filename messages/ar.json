@@ -58,7 +58,8 @@
     "gender": {
       "men": "رجالي",
       "women": "نسائي",
-      "unisex": "للجنسين"
+      "unisex": "للجنسين",
+      "kids": "أطفال"
     },
     "collectionLabel": "التشكيلة",
     "allCollections": "الكل",

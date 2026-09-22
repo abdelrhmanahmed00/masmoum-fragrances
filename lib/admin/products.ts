@@ -18,13 +18,14 @@ import type {
 // Deliberately NOT lib/catalog.ts's own VALID_GENDERS -- that one is
 // scoped to the public gender *filter* UI (Prompt 9/11) and intentionally
 // excludes "not_applicable" (nothing on the public site ever filters by
-// "not applicable"). The admin form needs all 4 real enum values, so this
+// "not applicable"). The admin form needs all 5 real enum values, so this
 // is its own, separate, correctly-scoped set rather than reusing one
 // that's missing a legitimate option on purpose.
 const VALID_GENDERS: readonly ProductGenderValue[] = [
   "men",
   "women",
   "unisex",
+  "kids",
   "not_applicable",
 ];
 

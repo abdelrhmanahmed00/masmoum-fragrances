@@ -17,6 +17,7 @@ const SLOT_LABELS: Record<string, string> = {
   men: "Men Tile",
   women: "Women Tile",
   unisex: "Unisex Tile",
+  kids: "Kids Tile",
 };
 
 export default async function AdminPerfumeGenderPage() {
@@ -30,7 +31,7 @@ export default async function AdminPerfumeGenderPage() {
         Perfumes Category — Gender Tiles
       </h1>
       <p className="mt-1 text-sm text-brand-gray">
-        The 3 large tile images (Men / Women / Unisex) shown on
+        The 4 large tile images (Men / Women / Unisex / Kids) shown on
         /categories/perfumes before a visitor picks a gender. Each slot
         always has SOME tile rendered publicly (a graceful placeholder
         until an image is uploaded here) -- replacing an image below

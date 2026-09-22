@@ -122,7 +122,7 @@ export type BrandRow = {
   name_ar: string;
 };
 
-export const VALID_GENDERS = ["men", "women", "unisex"] as const;
+export const VALID_GENDERS = ["men", "women", "unisex", "kids"] as const;
 export type ProductGender = (typeof VALID_GENDERS)[number];
 
 /** Narrows an arbitrary searchParams value to a real gender enum value, or

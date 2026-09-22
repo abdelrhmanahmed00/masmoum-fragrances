@@ -1,4 +1,4 @@
-export type ProductGenderValue = "men" | "women" | "unisex" | "not_applicable";
+export type ProductGenderValue = "men" | "women" | "unisex" | "kids" | "not_applicable";
 
 /** Row shape for the list page -- includes the joined category name
  *  (task requirement: "category (joined name, not just category_id)"). */

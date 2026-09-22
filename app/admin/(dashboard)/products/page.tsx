@@ -16,6 +16,7 @@ const GENDER_LABEL: Record<string, string> = {
   men: "Men",
   women: "Women",
   unisex: "Unisex",
+  kids: "Kids",
   not_applicable: "N/A",
 };
 

@@ -22,6 +22,7 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "unisex", label: "Unisex" },
+  { value: "kids", label: "Kids" },
 ];
 
 /**
@@ -31,7 +32,7 @@ const GENDER_OPTIONS: { value: string; label: string }[] = [
  *
  * Gender is always a plain <select>, never conditionally shown/hidden
  * based on the chosen category -- deliberate choice. The DB has no
- * constraint tying gender to category_id (any of the 4 enum values is
+ * constraint tying gender to category_id (any of the 5 enum values is
  * valid regardless of category), and category-gender relevance is a
  * PUBLIC-site *display* concern already handled where it belongs: Prompt
  * 11's category page only shows the gender *filter* UI for Perfumes
