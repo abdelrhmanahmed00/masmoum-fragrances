@@ -145,7 +145,11 @@ export async function POST(req: Request) {
     if (result.status === "success") {
       results.push({ slug: p.slug, status: "success", id: result.id });
     } else {
-      results.push({ slug: p.slug, status: "error", message: result.message });
+      results.push({
+        slug: p.slug,
+        status: "error",
+        message: "message" in result ? result.message : "unknown error",
+      });
     }
   }
 
