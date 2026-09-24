@@ -74,6 +74,11 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    // TEMPORARY (Prompt 177): Vercel's optimizer returns 402
+    // OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED for any variant not already
+    // cached, breaking product photos. Serve Storage URLs directly until the
+    // Vercel plan/usage issue is resolved, then remove this line.
+    unoptimized: true,
     // Supabase Storage is the only external image source for now. Scoped to
     // the public storage path rather than the whole hostname.
     remotePatterns: [
