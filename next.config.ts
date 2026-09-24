@@ -74,10 +74,17 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    // TEMPORARY (Prompt 177): Vercel's optimizer returns 402
-    // OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED for any variant not already
-    // cached, breaking product photos. Serve Storage URLs directly until the
-    // Vercel plan/usage issue is resolved, then remove this line.
+    // PERMANENT, deliberate configuration -- not a workaround to revert.
+    // Vercel's Image Optimization (/_next/image) has a monthly usage quota
+    // on the free Hobby plan that this catalog's image volume (240+
+    // products, each with real photos) exceeds, after which the optimizer
+    // answers 402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED and every image
+    // not already cached shows as broken. The client has chosen to stay on
+    // the free plan rather than pay for Pro's optimization allowance, so
+    // next/image serves the stored Supabase Storage file as-is
+    // (no resizing, no format conversion, `sizes` has no effect).
+    // Because of that, image weight is decided at UPLOAD time: keep
+    // lib/image-compression.ts's settings tight (see PRODUCT_IMAGE_COMPRESSION).
     unoptimized: true,
     // Supabase Storage is the only external image source for now. Scoped to
     // the public storage path rather than the whole hostname.

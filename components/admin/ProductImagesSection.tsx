@@ -3,7 +3,10 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadProductImageAction } from "@/app/admin/(dashboard)/products/[id]/edit/actions";
-import { compressImage } from "@/lib/image-compression";
+import {
+  compressImage,
+  PRODUCT_IMAGE_COMPRESSION,
+} from "@/lib/image-compression";
 import {
   PRODUCT_IMAGE_ACTION_INITIAL_STATE,
   type AdminProductImageRow,
@@ -85,7 +88,7 @@ export default function ProductImagesSection({
     setIsCompressing(true);
     let effectiveFile = file;
     try {
-      effectiveFile = await compressImage(file);
+      effectiveFile = await compressImage(file, PRODUCT_IMAGE_COMPRESSION);
     } finally {
       setIsCompressing(false);
     }

@@ -1,10 +1,10 @@
 /**
  * Client-side image compression before upload (Prompt 82) — protects
  * Supabase Storage quota and speeds up the admin's own upload experience.
- * Does NOT affect visitor-facing site speed at all: next/image already
- * generates appropriately-sized/optimized variants per request regardless
- * of the stored original's size (confirmed in the Prompt 81 audit) — this
- * only changes what gets WRITTEN to Storage in the first place.
+ * As of Prompt 178 it is ALSO the only image-weight control the public site
+ * has: next.config.ts serves images unoptimized (permanently, see the note
+ * there), so visitors download exactly the file that was stored here. A
+ * heavier upload is a heavier page for every visitor.
  *
  * Dependency-free (native Canvas API), not a library — both were
  * researched: a small library (e.g. browser-image-compression,
@@ -34,18 +34,16 @@ const COMPRESSIBLE_MIME_TYPES = new Set([
 ]);
 
 // Below this, compression isn't worth running: the CPU/time cost of a
-// resize+re-encode pass buys negligible (sometimes negative — see the
-// re-encode-larger guard below) savings on a file that's already small.
-// 500KB comfortably covers a typical already-optimized product photo
-// exported from design software; anything under it is left untouched.
-const SKIP_COMPRESSION_BELOW_BYTES = 500 * 1024;
+// resize+re-encode pass buys negligible savings on a file that's already
+// small. Lowered from 500KB to 150KB in Prompt 178: with no server-side
+// optimizer, a 150-500KB studio render (measured: ~205KB JPEG) was being
+// stored untouched and shipped in full to every card and page, while
+// re-encoding it as WebP measured ~10x smaller with no visible change.
+const SKIP_COMPRESSION_BELOW_BYTES = 150 * 1024;
 
-// 2000px on the longest side: this project's own next.config.ts caps its
-// largest real serving size (deviceSizes) at 1920px — 2000px comfortably
-// covers that with a small margin, while still being meaningfully smaller
-// than typical modern phone-camera photos (often 4000-6000px+ on the
-// longest side), so most real uploads genuinely get downscaled, not just
-// re-encoded at their original dimensions.
+// 2000px on the longest side: covers full-bleed 100vw hero slides on a
+// 1920px screen with a small margin, and is still far smaller than typical
+// phone-camera photos (4000-6000px+), so most real uploads get downscaled.
 const DEFAULT_MAX_DIMENSION = 2000;
 
 // 0.82: a standard "visually clean, meaningfully smaller" middle value —
@@ -57,6 +55,16 @@ const DEFAULT_QUALITY = 0.82;
 export type CompressImageOptions = {
   maxDimension?: number;
   quality?: number;
+};
+
+// Product photos are never shown full-bleed: the detail image renders in a
+// square box of at most 520 CSS px (~1040-1074 device px on 2x-3x screens)
+// and cards in at most 292 CSS px, both object-cover. 1600px on the longest
+// side still covers the detail box on retina for a typical landscape photo
+// (short side ~1067px), so this trims weight without a visible quality loss.
+export const PRODUCT_IMAGE_COMPRESSION: CompressImageOptions = {
+  maxDimension: 1600,
+  quality: 0.8,
 };
 
 /**
