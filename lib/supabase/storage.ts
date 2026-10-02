@@ -39,6 +39,18 @@ export function getPublicStorageUrl(
   bucket: StorageBucket,
   storagePath: string
 ): string {
+  // Vercel Blob migration (Prompt 192): every upload call site now stores
+  // the FULL public URL Blob's put() returns, not a bucket-relative path
+  // -- this one check is what lets every existing read call site through
+  // this function keep working unchanged for BOTH a row already migrated
+  // to Blob (an absolute URL, returned as-is) AND a row not yet migrated
+  // (still a plain Supabase-relative path, falls through to the existing
+  // construction below). This is deliberately the ONLY code path that
+  // needs to know about this distinction -- every caller stays unaware.
+  if (/^https?:\/\//.test(storagePath)) {
+    return storagePath;
+  }
+
   if (!SUPABASE_URL) {
     throw new Error(
       "Missing NEXT_PUBLIC_SUPABASE_URL environment variable."

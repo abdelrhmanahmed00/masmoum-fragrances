@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValue } from "@/lib/blob";
 import {
   BOTTLE_COLOR_SLOTS,
   type AdminBottleColorImageRow,
@@ -93,17 +93,12 @@ export async function updateBottleColorImage(
   const oldPath: string | null = existing?.storage_path ?? null;
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
-  const path = `${slot}-${crypto.randomUUID()}.${extension}`;
+  const path = `${BUCKET}/${slot}-${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let url: string;
+  try {
+    url = await uploadToBlob(path, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the image. Please try again.",
@@ -112,11 +107,11 @@ export async function updateBottleColorImage(
 
   const { error: updateError } = await supabase
     .from("bottle_color_images")
-    .update({ storage_path: path })
+    .update({ storage_path: url })
     .eq("slot", slot);
 
   if (updateError) {
-    await supabase.storage.from(BUCKET).remove([path]);
+    await removeStorageValue(supabase, BUCKET, url);
     return {
       status: "error",
       message: "Something went wrong saving the image. Please try again.",
@@ -124,7 +119,7 @@ export async function updateBottleColorImage(
   }
 
   if (oldPath) {
-    await supabase.storage.from(BUCKET).remove([oldPath]);
+    await removeStorageValue(supabase, BUCKET, oldPath);
   }
 
   return { status: "success" };

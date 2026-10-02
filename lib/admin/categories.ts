@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
 import { trimmedOrNull } from "@/lib/form-utils";
 import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   CategoryActionState,
   CategoryFieldErrors,
@@ -149,34 +149,31 @@ export async function createCategory(
   if (file) {
     const extension = EXTENSION_BY_MIME_TYPE[file.type];
     const uuid = crypto.randomUUID();
-    const path = `${uuid}.${extension}`;
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, file, {
-        contentType: file.type,
-        upsert: false,
-        cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-      });
+    const path = `${BUCKET}/${uuid}.${extension}`;
 
-    if (uploadError) {
+    try {
+      image_storage_path = await uploadToBlob(path, file, file.type);
+    } catch {
       return {
         status: "error",
         message: "Something went wrong uploading the image. Please try again.",
       };
     }
-    image_storage_path = path;
 
     if (thumbnailFile) {
       const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
-      const thumbPath = `${uuid}-thumb.${thumbExtension}`;
-      const { error: thumbUploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(thumbPath, thumbnailFile, {
-          contentType: thumbnailFile.type,
-          upsert: false,
-          cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-        });
-      if (!thumbUploadError) thumbnail_storage_path = thumbPath;
+      const thumbPath = `${BUCKET}/${uuid}-thumb.${thumbExtension}`;
+      try {
+        thumbnail_storage_path = await uploadToBlob(
+          thumbPath,
+          thumbnailFile,
+          thumbnailFile.type
+        );
+      } catch {
+        // Best-effort per this function's own comment -- a failed
+        // thumbnail upload leaves thumbnail_storage_path null, same as
+        // before this migration.
+      }
     }
   }
 
@@ -189,7 +186,7 @@ export async function createCategory(
       const orphaned = thumbnail_storage_path
         ? [image_storage_path, thumbnail_storage_path]
         : [image_storage_path];
-      await supabase.storage.from(BUCKET).remove(orphaned);
+      await removeStorageValues(supabase, BUCKET, orphaned);
     }
     if (error.code === UNIQUE_VIOLATION) {
       return {
@@ -263,51 +260,47 @@ export async function updateCategory(
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
   const uuid = crypto.randomUUID();
-  const newPath = `${uuid}.${extension}`;
+  const newPath = `${BUCKET}/${uuid}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(newPath, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let newUrl: string;
+  try {
+    newUrl = await uploadToBlob(newPath, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the new image. Please try again.",
     };
   }
 
-  let newThumbnailPath: string | null = null;
+  let newThumbnailUrl: string | null = null;
   if (thumbnailFile) {
     const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
-    const candidatePath = `${uuid}-thumb.${thumbExtension}`;
-    const { error: thumbUploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(candidatePath, thumbnailFile, {
-        contentType: thumbnailFile.type,
-        upsert: false,
-        cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-      });
-    if (!thumbUploadError) newThumbnailPath = candidatePath;
+    const candidatePath = `${BUCKET}/${uuid}-thumb.${thumbExtension}`;
+    try {
+      newThumbnailUrl = await uploadToBlob(
+        candidatePath,
+        thumbnailFile,
+        thumbnailFile.type
+      );
+    } catch {
+      // Best-effort, same as createCategory.
+    }
   }
 
   const { error: updateError } = await supabase
     .from("categories")
     .update({
       ...values,
-      image_storage_path: newPath,
-      thumbnail_storage_path: newThumbnailPath,
+      image_storage_path: newUrl,
+      thumbnail_storage_path: newThumbnailUrl,
     })
     .eq("id", id);
 
   if (updateError) {
     // DB row still points at the OLD (still-intact) image (or null) --
     // clean up only the newly-uploaded, now-orphaned file(s).
-    const orphaned = newThumbnailPath ? [newPath, newThumbnailPath] : [newPath];
-    await supabase.storage.from(BUCKET).remove(orphaned);
+    const orphaned = newThumbnailUrl ? [newUrl, newThumbnailUrl] : [newUrl];
+    await removeStorageValues(supabase, BUCKET, orphaned);
     if (updateError.code === UNIQUE_VIOLATION) {
       return {
         status: "error",
@@ -328,11 +321,11 @@ export async function updateCategory(
     (p): p is string => Boolean(p)
   );
   if (oldPaths.length > 0) {
-    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove(oldPaths);
-
-    if (cleanupError) {
+    try {
+      await removeStorageValues(supabase, BUCKET, oldPaths);
+    } catch (cleanupError) {
       console.warn(
-        `[categories] Old Storage object cleanup failed for "${oldPaths.join(", ")}" after replacing category ${id}'s image. File(s) now orphaned in the bucket.`,
+        `[categories] Old Storage object cleanup failed for "${oldPaths.join(", ")}" after replacing category ${id}'s image. File(s) now orphaned.`,
         cleanupError
       );
     }
@@ -406,9 +399,9 @@ export async function deleteCategory(
     (p): p is string => Boolean(p)
   );
   if (pathsToRemove.length > 0) {
-    const { error: storageError } = await supabase.storage.from(BUCKET).remove(pathsToRemove);
-
-    if (storageError) {
+    try {
+      await removeStorageValues(supabase, BUCKET, pathsToRemove);
+    } catch (storageError) {
       console.warn(
         `[categories] Storage cleanup failed for "${pathsToRemove.join(", ")}" after deleting category ${id}.`,
         storageError

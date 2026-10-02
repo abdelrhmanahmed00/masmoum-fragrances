@@ -86,12 +86,13 @@ const nextConfig: NextConfig = {
     // Because of that, image weight is decided at UPLOAD time: keep
     // lib/image-compression.ts's settings tight (see PRODUCT_IMAGE_COMPRESSION).
     unoptimized: true,
-    // Supabase Storage is the only external image source for now. Scoped to
-    // the public storage path rather than the whole hostname. Also allow
-    // the optional Cloudflare cache-proxy domain (Prompt 183,
-    // NEXT_PUBLIC_IMAGE_CDN_URL / lib/supabase/storage.ts) under the same
-    // path shape, so switching getPublicStorageUrl() over to it doesn't
-    // require touching this list again.
+    // Supabase Storage (legacy, still serving any row not yet migrated)
+    // plus Vercel Blob (Prompt 192 -- the new, permanent home for every
+    // image/video's actual bytes, same Vercel account/project this client
+    // already controls). Also still allows the optional, unused
+    // Cloudflare cache-proxy domain (Prompt 183, NEXT_PUBLIC_IMAGE_CDN_URL)
+    // -- harmless to leave since it's env-gated and currently unset, not
+    // worth the churn of removing in this same pass.
     remotePatterns: [
       new URL(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"}/storage/v1/object/public/**`
@@ -103,6 +104,10 @@ const nextConfig: NextConfig = {
             ),
           ]
         : []),
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
     ],
     // Next.js 16 default is [75] already; kept explicit so the tradeoff is
     // visible here. A single quality avoids generating extra cached variants

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValue } from "@/lib/blob";
 import type {
   AdminHeroSlideRow,
   HeroSlideActionState,
@@ -179,17 +179,12 @@ export async function createHeroSlide(
   }
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
-  const path = `${crypto.randomUUID()}.${extension}`;
+  const path = `${BUCKET}/${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let url: string;
+  try {
+    url = await uploadToBlob(path, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the image. Please try again.",
@@ -198,11 +193,11 @@ export async function createHeroSlide(
 
   const { error: insertError } = await supabase.from("hero_slides").insert({
     ...values,
-    storage_path: path,
+    storage_path: url,
   });
 
   if (insertError) {
-    await supabase.storage.from(BUCKET).remove([path]);
+    await removeStorageValue(supabase, BUCKET, url);
     return {
       status: "error",
       message: "Something went wrong saving the slide. Please try again.",
@@ -276,17 +271,12 @@ export async function updateHeroSlide(
   }
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
-  const newPath = `${crypto.randomUUID()}.${extension}`;
+  const newPath = `${BUCKET}/${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(newPath, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let newUrl: string;
+  try {
+    newUrl = await uploadToBlob(newPath, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the new image. Please try again.",
@@ -295,14 +285,14 @@ export async function updateHeroSlide(
 
   const { error: updateError } = await supabase
     .from("hero_slides")
-    .update({ ...values, storage_path: newPath })
+    .update({ ...values, storage_path: newUrl })
     .eq("id", id);
 
   if (updateError) {
     // DB row still points at the OLD (still-intact) image -- clean up
     // only the newly-uploaded, now-orphaned file. The slide is left
     // exactly as it was before this call.
-    await supabase.storage.from(BUCKET).remove([newPath]);
+    await removeStorageValue(supabase, BUCKET, newUrl);
     return {
       status: "error",
       message: "Something went wrong saving the slide. Please try again.",
@@ -312,13 +302,11 @@ export async function updateHeroSlide(
   // New image is confirmed live in the DB -- now safe to remove the old
   // one. Best-effort: logged, not fatal, same reasoning as
   // lib/admin/product-images.ts's deleteProductImage.
-  const { error: cleanupError } = await supabase.storage
-    .from(BUCKET)
-    .remove([existing.storage_path]);
-
-  if (cleanupError) {
+  try {
+    await removeStorageValue(supabase, BUCKET, existing.storage_path);
+  } catch (cleanupError) {
     console.warn(
-      `[hero-slides] Old Storage object cleanup failed for "${existing.storage_path}" after replacing slide ${id}'s image. File is now orphaned in the bucket.`,
+      `[hero-slides] Old Storage object cleanup failed for "${existing.storage_path}" after replacing slide ${id}'s image. File is now orphaned.`,
       cleanupError
     );
   }
@@ -360,13 +348,11 @@ export async function deleteHeroSlide(
     };
   }
 
-  const { error: storageError } = await supabase.storage
-    .from(BUCKET)
-    .remove([slide.storage_path]);
-
-  if (storageError) {
+  try {
+    await removeStorageValue(supabase, BUCKET, slide.storage_path);
+  } catch (storageError) {
     console.warn(
-      `[hero-slides] Storage object cleanup failed for "${slide.storage_path}" after deleting hero_slides row ${id}. File is now orphaned in the bucket.`,
+      `[hero-slides] Storage object cleanup failed for "${slide.storage_path}" after deleting hero_slides row ${id}. File is now orphaned.`,
       storageError
     );
   }

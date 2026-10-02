@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   AdminProductImageRow,
   ProductImageActionState,
@@ -119,39 +119,34 @@ export async function uploadProductImage(
   // -- purely so the two files are visibly paired by name in the bucket;
   // nothing in the app ever derives one path from the other.
   const uuid = crypto.randomUUID();
-  const path = `${productId}/${uuid}.${extension}`;
+  const path = `${BUCKET}/${productId}/${uuid}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let url: string;
+  try {
+    url = await uploadToBlob(path, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the image. Please try again.",
     };
   }
 
-  let thumbnailPath: string | null = null;
+  let thumbnailUrl: string | null = null;
   if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
     const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
     if (thumbExtension) {
-      const candidatePath = `${productId}/${uuid}-thumb.${thumbExtension}`;
-      const { error: thumbUploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(candidatePath, thumbnailFile, {
-          contentType: thumbnailFile.type,
-          upsert: false,
-          cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-        });
-      // Best-effort per this function's own comment above -- a failed
-      // thumbnail upload doesn't fail the whole operation, it just leaves
-      // thumbnail_storage_path null for this image.
-      if (!thumbUploadError) thumbnailPath = candidatePath;
+      const candidatePath = `${BUCKET}/${productId}/${uuid}-thumb.${thumbExtension}`;
+      try {
+        thumbnailUrl = await uploadToBlob(
+          candidatePath,
+          thumbnailFile,
+          thumbnailFile.type
+        );
+      } catch {
+        // Best-effort per this function's own comment above -- a failed
+        // thumbnail upload doesn't fail the whole operation, it just leaves
+        // thumbnail_storage_path null for this image.
+      }
     }
   }
 
@@ -170,8 +165,8 @@ export async function uploadProductImage(
 
   const { error: insertError } = await supabase.from("product_images").insert({
     product_id: productId,
-    storage_path: path,
-    thumbnail_storage_path: thumbnailPath,
+    storage_path: url,
+    thumbnail_storage_path: thumbnailUrl,
     sort_order: nextSortOrder,
     is_primary: isFirstImage,
   });
@@ -180,8 +175,8 @@ export async function uploadProductImage(
     // The file(s) DID upload -- clean up the now-orphaned object(s)
     // rather than leave a permanent leak no product_images row will ever
     // reference.
-    const orphaned = thumbnailPath ? [path, thumbnailPath] : [path];
-    await supabase.storage.from(BUCKET).remove(orphaned);
+    const orphaned = thumbnailUrl ? [url, thumbnailUrl] : [url];
+    await removeStorageValues(supabase, BUCKET, orphaned);
     return {
       status: "error",
       message: "Something went wrong saving the image. Please try again.",
@@ -351,13 +346,11 @@ export async function deleteProductImage(
     ? [image.storage_path, image.thumbnail_storage_path]
     : [image.storage_path];
 
-  const { error: storageError } = await supabase.storage
-    .from(BUCKET)
-    .remove(pathsToRemove);
-
-  if (storageError) {
+  try {
+    await removeStorageValues(supabase, BUCKET, pathsToRemove);
+  } catch (storageError) {
     console.warn(
-      `[product-images] Storage object cleanup failed for "${pathsToRemove.join(", ")}" after deleting product_images row ${imageId}. File(s) now orphaned in the bucket.`,
+      `[product-images] Storage object cleanup failed for "${pathsToRemove.join(", ")}" after deleting product_images row ${imageId}. File(s) now orphaned.`,
       storageError
     );
   }

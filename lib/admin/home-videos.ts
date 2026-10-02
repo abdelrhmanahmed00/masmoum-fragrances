@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   AdminHomeVideoRow,
   HomeVideoActionState,
@@ -117,33 +117,23 @@ function validateThumbnailFile(
   return { error: null, file };
 }
 
-async function uploadVideo(supabase: SupabaseClient, file: File) {
-  const path = `videos/${crypto.randomUUID()}.${VIDEO_EXTENSION_BY_MIME_TYPE[file.type]}`;
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-  return { path, error };
+// Prompt 192 -- throws on failure rather than returning {path, error}:
+// every caller immediately does `if (error) return {status: "error", ...}`
+// right after, so a thrown error (caught at each call site below) reads
+// the same way without a nullable `path` TypeScript can't narrow.
+async function uploadVideo(file: File): Promise<string> {
+  const path = `${BUCKET}/videos/${crypto.randomUUID()}.${VIDEO_EXTENSION_BY_MIME_TYPE[file.type]}`;
+  return uploadToBlob(path, file, file.type);
 }
 
-async function uploadThumbnail(supabase: SupabaseClient, file: File) {
-  const path = `thumbnails/${crypto.randomUUID()}.${IMAGE_EXTENSION_BY_MIME_TYPE[file.type]}`;
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-  return { path, error };
+async function uploadThumbnail(file: File): Promise<string> {
+  const path = `${BUCKET}/thumbnails/${crypto.randomUUID()}.${IMAGE_EXTENSION_BY_MIME_TYPE[file.type]}`;
+  return uploadToBlob(path, file, file.type);
 }
 
 async function removeObjects(supabase: SupabaseClient, paths: string[]) {
   if (paths.length === 0) return;
-  await supabase.storage.from(BUCKET).remove(paths);
+  await removeStorageValues(supabase, BUCKET, paths);
 }
 
 export async function getHomeVideos(
@@ -186,15 +176,15 @@ export async function createHomeVideo(
     if (fileError) {
       fieldErrors.file = fileError;
     } else if (file) {
-      const { path, error } = await uploadVideo(supabase, file);
-      if (error) {
+      try {
+        storage_path = await uploadVideo(file);
+        uploadedPaths.push(storage_path);
+      } catch {
         return {
           status: "error",
           message: "Something went wrong uploading the video. Please try again.",
         };
       }
-      storage_path = path;
-      uploadedPaths.push(path);
     }
   } else if (sourceType === "external") {
     const url = trimmedOrNull(formData.get("external_url"));
@@ -214,16 +204,16 @@ export async function createHomeVideo(
 
   let thumbnail_storage_path: string | null = null;
   if (!thumbError && thumbFile) {
-    const { path, error } = await uploadThumbnail(supabase, thumbFile);
-    if (error) {
+    try {
+      thumbnail_storage_path = await uploadThumbnail(thumbFile);
+      uploadedPaths.push(thumbnail_storage_path);
+    } catch {
       await removeObjects(supabase, uploadedPaths);
       return {
         status: "error",
         message: "Something went wrong uploading the thumbnail. Please try again.",
       };
     }
-    thumbnail_storage_path = path;
-    uploadedPaths.push(path);
   }
 
   if (!values || Object.keys(fieldErrors).length > 0) {
@@ -302,15 +292,15 @@ export async function updateHomeVideo(
     if (fileError) {
       fieldErrors.file = fileError;
     } else if (file) {
-      const { path, error } = await uploadVideo(supabase, file);
-      if (error) {
+      try {
+        finalStoragePath = await uploadVideo(file);
+        newlyUploadedPaths.push(finalStoragePath);
+      } catch {
         return {
           status: "error",
           message: "Something went wrong uploading the video. Please try again.",
         };
       }
-      finalStoragePath = path;
-      newlyUploadedPaths.push(path);
     }
     // else: staying on upload, no new file -- finalStoragePath stays
     // existing.storage_path (already assigned above).
@@ -334,16 +324,16 @@ export async function updateHomeVideo(
 
   let finalThumbnailPath: string | null = existing.thumbnail_storage_path;
   if (!thumbError && thumbFile) {
-    const { path, error } = await uploadThumbnail(supabase, thumbFile);
-    if (error) {
+    try {
+      finalThumbnailPath = await uploadThumbnail(thumbFile);
+      newlyUploadedPaths.push(finalThumbnailPath);
+    } catch {
       await removeObjects(supabase, newlyUploadedPaths);
       return {
         status: "error",
         message: "Something went wrong uploading the thumbnail. Please try again.",
       };
     }
-    finalThumbnailPath = path;
-    newlyUploadedPaths.push(path);
   } else if (!thumbError && removeThumbnail) {
     finalThumbnailPath = null;
   }
@@ -391,12 +381,11 @@ export async function updateHomeVideo(
     toCleanUp.push(existing.thumbnail_storage_path);
   }
   if (toCleanUp.length > 0) {
-    const { error: cleanupError } = await supabase.storage
-      .from(BUCKET)
-      .remove(toCleanUp);
-    if (cleanupError) {
+    try {
+      await removeStorageValues(supabase, BUCKET, toCleanUp);
+    } catch (cleanupError) {
       console.warn(
-        `[home-videos] Old Storage object cleanup failed for [${toCleanUp.join(", ")}] after updating video ${id}. File(s) now orphaned in the bucket.`,
+        `[home-videos] Old Storage object cleanup failed for [${toCleanUp.join(", ")}] after updating video ${id}. File(s) now orphaned.`,
         cleanupError
       );
     }
@@ -447,12 +436,11 @@ export async function deleteHomeVideo(
   if (video.thumbnail_storage_path) toRemove.push(video.thumbnail_storage_path);
 
   if (toRemove.length > 0) {
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET)
-      .remove(toRemove);
-    if (storageError) {
+    try {
+      await removeStorageValues(supabase, BUCKET, toRemove);
+    } catch (storageError) {
       console.warn(
-        `[home-videos] Storage object cleanup failed for [${toRemove.join(", ")}] after deleting home_videos row ${id}. File(s) now orphaned in the bucket.`,
+        `[home-videos] Storage object cleanup failed for [${toRemove.join(", ")}] after deleting home_videos row ${id}. File(s) now orphaned.`,
         storageError
       );
     }

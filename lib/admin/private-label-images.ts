@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
+import { uploadToBlob, removeStorageValue } from "@/lib/blob";
 import {
   PRIVATE_LABEL_IMAGE_SLOTS,
   type AdminPrivateLabelImageRow,
@@ -11,7 +11,10 @@ import {
 // Same plain-function-taking-a-client split as every other lib/admin/*.ts
 // file -- see lib/admin/categories.ts's own comment for the full
 // reasoning.
-
+//
+// Prompt 192 -- bytes now live on Vercel Blob, not this Supabase bucket;
+// BUCKET below is kept only as the identifier removeStorageValue falls
+// back to for any row not yet migrated (see lib/blob.ts's own comment).
 const BUCKET = "private-label-images";
 
 // Same limits as every other image-upload bucket in this project (0012
@@ -93,17 +96,12 @@ export async function updatePrivateLabelImage(
   const oldPath: string | null = existing?.storage_path ?? null;
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
-  const path = `${slot}-${crypto.randomUUID()}.${extension}`;
+  const path = `${BUCKET}/${slot}-${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
-    });
-
-  if (uploadError) {
+  let url: string;
+  try {
+    url = await uploadToBlob(path, file, file.type);
+  } catch {
     return {
       status: "error",
       message: "Something went wrong uploading the image. Please try again.",
@@ -112,11 +110,11 @@ export async function updatePrivateLabelImage(
 
   const { error: updateError } = await supabase
     .from("private_label_images")
-    .update({ storage_path: path })
+    .update({ storage_path: url })
     .eq("slot", slot);
 
   if (updateError) {
-    await supabase.storage.from(BUCKET).remove([path]);
+    await removeStorageValue(supabase, BUCKET, url);
     return {
       status: "error",
       message: "Something went wrong saving the image. Please try again.",
@@ -124,7 +122,7 @@ export async function updatePrivateLabelImage(
   }
 
   if (oldPath) {
-    await supabase.storage.from(BUCKET).remove([oldPath]);
+    await removeStorageValue(supabase, BUCKET, oldPath);
   }
 
   return { status: "success" };

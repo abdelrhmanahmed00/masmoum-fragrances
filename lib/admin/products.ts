@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
 import { trimmedOrNull } from "@/lib/form-utils";
 import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
+import { removeStorageValues } from "@/lib/blob";
 import type {
   BrandOption,
   CategoryOption,
@@ -416,10 +417,9 @@ export async function deleteProduct(
         ? [img.storage_path, img.thumbnail_storage_path]
         : [img.storage_path]
     );
-    const { error: storageError } = await supabase.storage
-      .from("product-images")
-      .remove(paths);
-    if (storageError) {
+    try {
+      await removeStorageValues(supabase, "product-images", paths);
+    } catch (storageError) {
       console.warn(
         `[products] Storage cleanup failed for product ${id} after delete (paths: ${paths.join(", ")}).`,
         storageError
