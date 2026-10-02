@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
+import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
 import type {
   AdminHomeVideoRow,
   HomeVideoActionState,
@@ -120,7 +121,11 @@ async function uploadVideo(supabase: SupabaseClient, file: File) {
   const path = `videos/${crypto.randomUUID()}.${VIDEO_EXTENSION_BY_MIME_TYPE[file.type]}`;
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
   return { path, error };
 }
 
@@ -128,7 +133,11 @@ async function uploadThumbnail(supabase: SupabaseClient, file: File) {
   const path = `thumbnails/${crypto.randomUUID()}.${IMAGE_EXTENSION_BY_MIME_TYPE[file.type]}`;
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
   return { path, error };
 }
 

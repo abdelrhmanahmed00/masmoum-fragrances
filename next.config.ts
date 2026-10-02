@@ -87,11 +87,22 @@ const nextConfig: NextConfig = {
     // lib/image-compression.ts's settings tight (see PRODUCT_IMAGE_COMPRESSION).
     unoptimized: true,
     // Supabase Storage is the only external image source for now. Scoped to
-    // the public storage path rather than the whole hostname.
+    // the public storage path rather than the whole hostname. Also allow
+    // the optional Cloudflare cache-proxy domain (Prompt 183,
+    // NEXT_PUBLIC_IMAGE_CDN_URL / lib/supabase/storage.ts) under the same
+    // path shape, so switching getPublicStorageUrl() over to it doesn't
+    // require touching this list again.
     remotePatterns: [
       new URL(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"}/storage/v1/object/public/**`
       ),
+      ...(process.env.NEXT_PUBLIC_IMAGE_CDN_URL
+        ? [
+            new URL(
+              `${process.env.NEXT_PUBLIC_IMAGE_CDN_URL}/storage/v1/object/public/**`
+            ),
+          ]
+        : []),
     ],
     // Next.js 16 default is [75] already; kept explicit so the tradeoff is
     // visible here. A single quality avoids generating extra cached variants

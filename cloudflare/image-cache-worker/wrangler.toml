@@ -1,0 +1,33 @@
+# Masmoum Fragrances — Supabase Storage cache proxy (Prompt 183).
+# See worker.js for what this does and why.
+#
+# SETUP STEPS (once Supabase Storage access is restored -- this can be
+# deployed any time before that, it just has nothing to proxy to yet):
+#
+#   1. Install wrangler if you don't have it: `npm install -g wrangler`
+#   2. From this directory, log in once: `wrangler login`
+#   3. Deploy: `wrangler deploy`
+#   4. Confirm masmoumfragrances.com's DNS is on Cloudflare with the ORANGE
+#      cloud (proxied), full nameserver setup -- already true per this
+#      session. The `routes` entry below attaches this worker directly to
+#      that zone; no separate DNS record needs to be created by hand.
+#   5. Test: https://cdn.masmoumfragrances.com/storage/v1/object/public/category-images/<real-path>
+#      should return the image, and a SECOND request to the same URL
+#      should come back noticeably faster (cache hit) -- check the
+#      `cf-cache-status` response header if you want to confirm directly.
+#   6. Set NEXT_PUBLIC_IMAGE_CDN_URL=https://cdn.masmoumfragrances.com in
+#      Vercel's project environment variables, then redeploy the Next.js
+#      app -- lib/supabase/storage.ts picks it up automatically and every
+#      image/video URL the app renders switches to this domain.
+#   7. Watch Cloudflare dashboard → Workers & Pages → this worker →
+#      Metrics for the first few days. If daily requests climb toward
+#      100,000 (the Workers Free plan ceiling), see the "KNOWN TRADEOFF"
+#      comment at the top of worker.js for the two real options.
+
+name = "masmoum-image-cache"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+routes = [
+  { pattern = "cdn.masmoumfragrances.com/storage/v1/object/public/*", zone_name = "masmoumfragrances.com" }
+]

@@ -1,5 +1,18 @@
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+// Optional (Prompt 183): base URL of the Cloudflare Worker cache proxy that
+// sits in front of Supabase Storage's public object URLs -- see
+// cloudflare/image-cache-worker/ for the worker itself and its setup steps.
+// When set, every Storage-backed image/video URL this project renders is
+// built against this domain instead of hitting *.supabase.co directly, so
+// repeat requests (across ALL visitors, not just one browser) are served
+// from Cloudflare's free edge cache and never reach Supabase's egress
+// meter at all. Deliberately optional and additive: leaving this unset
+// (e.g. before the Worker + DNS are actually set up) falls straight back
+// to the original direct-Supabase-URL behavior, so this is safe to deploy
+// ahead of the Cloudflare-side setup being finished.
+const IMAGE_CDN_URL = process.env.NEXT_PUBLIC_IMAGE_CDN_URL;
+
 export type StorageBucket =
   | "hero-images"
   | "product-images"
@@ -18,8 +31,8 @@ export type StorageBucket =
  * renders a Storage-backed image goes through this instead of repeating
  * the URL shape itself.
  *
- * Safe to call from both Server and Client Components — it only reads the
- * public env var and does plain string construction, no Supabase client
+ * Safe to call from both Server and Client Components — it only reads
+ * public env vars and does plain string construction, no Supabase client
  * instance needed.
  */
 export function getPublicStorageUrl(
@@ -38,5 +51,7 @@ export function getPublicStorageUrl(
     .map(encodeURIComponent)
     .join("/");
 
-  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${encodedPath}`;
+  const base = IMAGE_CDN_URL ?? SUPABASE_URL;
+
+  return `${base}/storage/v1/object/public/${bucket}/${encodedPath}`;
 }

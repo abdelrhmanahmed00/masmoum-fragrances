@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
 import { trimmedOrNull } from "@/lib/form-utils";
 import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
+import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
 import type {
   CategoryActionState,
   CategoryFieldErrors,
@@ -145,7 +146,11 @@ export async function createCategory(
     const path = `${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+        cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+      });
 
     if (uploadError) {
       return {
@@ -238,7 +243,11 @@ export async function updateCategory(
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(newPath, file, { contentType: file.type, upsert: false });
+    .upload(newPath, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
 
   if (uploadError) {
     return {

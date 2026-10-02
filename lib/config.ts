@@ -63,6 +63,32 @@ export const REVALIDATE_SECONDS = {
   pages: 3600, // 1 hour
 } as const;
 
+/**
+ * Cache-Control max-age (seconds) applied to every Storage object at
+ * UPLOAD time, via the `cacheControl` option on `.storage.from(...).upload()`
+ * (Prompt 183). Supabase's JS SDK defaults this to 3600 (1 hour) if omitted
+ * -- far too short for this project's images, which are never actually
+ * mutable at a given path: Prompt 7 (see the path-construction comment next
+ * to every upload call) deliberately gives every upload a brand-new
+ * crypto.randomUUID() path specifically so a replaced image is never served
+ * from the same URL a stale cache might still hold. That decision means
+ * every object this header applies to is permanently immutable at its
+ * storage_path -- there is no "edit in place" case to invalidate against --
+ * so there's no downside to caching it for as long as both browsers and
+ * Supabase's own Storage CDN will honor it.
+ *
+ * Why this matters beyond browser convenience: Supabase's free-tier
+ * "cached egress" quota (5GB/cycle) is metered on bytes actually served to
+ * visitors, and a 1-hour header means every browser re-fetches the full
+ * original file from Supabase at least once an hour on any page with that
+ * image open/revisited, with zero benefit since the bytes never change. A
+ * 1-year header turns most of that into a local disk-cache hit that never
+ * reaches Supabase at all for any returning visitor within the year -- see
+ * the Prompt 183 egress investigation for the math on how big a lever this
+ * is at this site's traffic.
+ */
+export const STORAGE_UPLOAD_CACHE_CONTROL_SECONDS = 31536000; // 1 year
+
 export const siteConfig = {
   name: "Masmoum Fragrances",
   description: "B2B wholesale fragrance manufacturer",

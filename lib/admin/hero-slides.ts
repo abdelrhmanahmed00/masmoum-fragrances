@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
+import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
 import type {
   AdminHeroSlideRow,
   HeroSlideActionState,
@@ -182,7 +183,11 @@ export async function createHeroSlide(
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
 
   if (uploadError) {
     return {
@@ -275,7 +280,11 @@ export async function updateHeroSlide(
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(newPath, file, { contentType: file.type, upsert: false });
+    .upload(newPath, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
 
   if (uploadError) {
     return {

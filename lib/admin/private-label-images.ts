@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { STORAGE_UPLOAD_CACHE_CONTROL_SECONDS } from "@/lib/config";
 import {
   PRIVATE_LABEL_IMAGE_SLOTS,
   type AdminPrivateLabelImageRow,
@@ -96,7 +97,11 @@ export async function updatePrivateLabelImage(
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+      cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+    });
 
   if (uploadError) {
     return {
