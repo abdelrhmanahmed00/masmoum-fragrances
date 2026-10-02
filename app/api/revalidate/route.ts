@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { updateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 
 /**
  * On-demand cache revalidation (Prompt 189).
@@ -39,7 +39,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required 'tag' query param." }, { status: 400 });
   }
 
-  updateTag(tag);
+  // NOT updateTag -- confirmed by reading next/dist/server/web/spec-extension/revalidate.js
+  // directly: updateTag unconditionally throws outside a Server Action
+  // ("workStore.page.endsWith('/route')" check), which is exactly what this
+  // file is. revalidateTag is the one usable from a Route Handler.
+  //
+  // Second arg is `{ expire: 0 }`, not a named profile string (e.g. "max"):
+  // named profiles are looked up from workStore.cacheLifeProfiles, which is
+  // only populated by the `cacheLife` config under the `cacheComponents`
+  // experimental flag -- this project doesn't have that enabled (see
+  // app/[locale]/(marketing)/products/page.tsx's own comment), so a string
+  // profile isn't guaranteed to resolve here. `{ expire: 0 }` is a plain
+  // object Next.js's own revalidate() treats identically to the deprecated
+  // bare single-arg call (immediate full revalidation) without depending on
+  // any profile configuration -- confirmed from the same source read.
+  revalidateTag(tag, { expire: 0 });
 
   return NextResponse.json({ revalidated: true, tag, now: Date.now() });
 }
