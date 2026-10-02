@@ -1,6 +1,6 @@
 import { createPublicClient } from "@/lib/supabase/server";
 import { getPublicStorageUrl } from "@/lib/supabase/storage";
-import { REVALIDATE_SECONDS } from "@/lib/config";
+import { REVALIDATE_SECONDS, PRODUCTS_PAGE_SIZE } from "@/lib/config";
 import { resolveAvailableStock } from "@/lib/stock";
 import type { ProductCardData } from "@/types/product";
 import type { ProductDetail } from "@/types/product-detail";
@@ -19,8 +19,11 @@ import type { ProductDetail } from "@/types/product-detail";
 // back with `brand: null` from this embed -- Supabase's left-join-style
 // embed semantics for a nullable FK, same as `category` already behaves
 // for the (rarer, defensively-handled) case of a product with no category.
+// Prompt 190 -- thumbnail_storage_path added to the images embed: a card
+// is exactly the grid context the dual-size upload exists for, so
+// toCardData below prefers it over the full-size storage_path.
 export const PRODUCT_CARD_SELECT =
-  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), brand:brands(name_en, name_ar), images:product_images(storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)";
+  "id, slug, name_en, name_ar, stock_quantity, moq, category:categories(name_en, name_ar), brand:brands(name_en, name_ar), images:product_images(storage_path, thumbnail_storage_path, is_primary), sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)";
 
 type RawCategory = { name_en: string; name_ar: string } | null;
 /** Prompt 87 -- same shape as RawCategory, kept as its own named type
@@ -29,7 +32,11 @@ type RawCategory = { name_en: string; name_ar: string } | null;
  *  already gets its own Row/Raw type rather than sharing one across
  *  unrelated concepts that happen to have identical shapes. */
 type RawBrand = { name_en: string; name_ar: string } | null;
-type RawImage = { storage_path: string; is_primary: boolean };
+type RawImage = {
+  storage_path: string;
+  thumbnail_storage_path: string | null;
+  is_primary: boolean;
+};
 type RawSize = {
   id: string;
   size_label: string;
@@ -51,6 +58,18 @@ export type RawProductCard = {
   brand: RawBrand;
   images: RawImage[];
   sizes: RawSize[];
+};
+
+/** Prompt 190 -- the shared paginated-listing return shape for
+ *  getAllActiveProducts/getCategoryProducts/getCollectionProducts below:
+ *  `products` is just this page's slice (PRODUCTS_PAGE_SIZE rows), and
+ *  `totalCount` is the TOTAL matching row count (via Supabase's `count:
+ *  "exact"` select option, not products.length) -- callers need the real
+ *  total to render page numbers/a "next page exists" control, which the
+ *  slice alone can't tell them. */
+export type PaginatedProducts = {
+  products: ProductCardData[];
+  totalCount: number;
 };
 
 export function toCardData(product: RawProductCard): ProductCardData {
@@ -78,8 +97,16 @@ export function toCardData(product: RawProductCard): ProductCardData {
     brandName: product.brand
       ? { en: product.brand.name_en, ar: product.brand.name_ar }
       : null,
+    // Prompt 190 -- prefers the thumbnail (falls back to the full-size
+    // path for any image uploaded before this prompt): a card is exactly
+    // the grid context the dual-size upload exists for, and this imageUrl
+    // is also what gets passed into AddToQuoteButton -> the quote cart's
+    // own 64-80px line-item image, equally a thumbnail context.
     imageUrl: primaryImage
-      ? getPublicStorageUrl("product-images", primaryImage.storage_path)
+      ? getPublicStorageUrl(
+          "product-images",
+          primaryImage.thumbnail_storage_path ?? primaryImage.storage_path
+        )
       : null,
     defaultSize: defaultSize
       ? { id: defaultSize.id, label: defaultSize.size_label }
@@ -272,6 +299,10 @@ export type CategoryTemplate = {
   name_en: string;
   name_ar: string;
   image_storage_path: string | null;
+  /** Prompt 190 -- null for any category whose image predates this
+   *  prompt. CategoryTemplatesStrip.tsx prefers this, falling back to
+   *  image_storage_path. */
+  thumbnail_storage_path: string | null;
 };
 
 export async function getCategoryTemplates(): Promise<CategoryTemplate[]> {
@@ -280,7 +311,7 @@ export async function getCategoryTemplates(): Promise<CategoryTemplate[]> {
   ]);
   const { data, error } = await supabase
     .from("categories")
-    .select("id, slug, name_en, name_ar, image_storage_path")
+    .select("id, slug, name_en, name_ar, image_storage_path, thumbnail_storage_path")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
@@ -400,6 +431,7 @@ export async function getCategoryProducts({
   gender,
   collectionId,
   brandId,
+  page = 1,
 }: {
   categoryId: string;
   gender?: ProductGender;
@@ -409,7 +441,10 @@ export async function getCategoryProducts({
    *  caller omits it and gets byte-for-byte the same unfiltered behavior
    *  as before this prompt. */
   brandId?: string | null;
-}): Promise<ProductCardData[]> {
+  /** Prompt 190 -- 1-indexed, defaults to the first page so every
+   *  existing caller that omits it keeps working unchanged. */
+  page?: number;
+}): Promise<PaginatedProducts> {
   // Tagged "categories" (Prompt 23 -- PRODUCT_CARD_SELECT embeds
   // category:categories(name_en, name_ar) via a join) AND "products"
   // (Prompt 27 -- this reads the products table itself, so a product
@@ -427,32 +462,60 @@ export async function getCategoryProducts({
   // when actually filtering by collection -- same join+filter pattern
   // confirmed correct in Prompt 9 (querying FROM products, not FROM
   // product_collections, so `order` applies to the outer rows directly).
+  // { count: "exact" } (Prompt 190) -- needed so the page can render page
+  // numbers / know whether a next page exists; the .range() below only
+  // returns this page's slice, which can't answer that on its own.
   let query = supabase
     .from("products")
     .select(
       collectionId
         ? `${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`
-        : PRODUCT_CARD_SELECT
+        : PRODUCT_CARD_SELECT,
+      { count: "exact" }
     )
     .eq("is_active", true)
     .eq("category_id", categoryId)
+    // Prompt 190 -- a card only ever renders ONE image (toCardData's own
+    // is_primary lookup), but the embed used to return every image row
+    // for every product. Confirmed live (not assumed) that a dot-path
+    // filter on a plain (non-!inner) embed narrows the embedded array
+    // without dropping the parent row -- a product with images but no
+    // row flagged primary (shouldn't happen given the upload/delete
+    // invariant, but not DB-enforced) still comes back, just with an
+    // empty images array, same as toCardData already handles today.
+    .eq("images.is_primary", true)
     .order("sort_order", { ascending: true });
 
   if (gender) query = query.eq("gender", gender);
   if (collectionId) query = query.eq("product_collections.collection_id", collectionId);
   if (brandId) query = query.eq("brand_id", brandId);
 
-  const { data, error } = await query;
-  return error || !data
-    ? []
-    : data.map((p) => toCardData(p as unknown as RawProductCard));
+  const from = (page - 1) * PRODUCTS_PAGE_SIZE;
+  const { data, error, count } = await query.range(
+    from,
+    from + PRODUCTS_PAGE_SIZE - 1
+  );
+
+  return {
+    products:
+      error || !data
+        ? []
+        : data.map((p) => toCardData(p as unknown as RawProductCard)),
+    totalCount: count ?? 0,
+  };
 }
 
 export async function getCollectionProducts({
   collectionId,
+  page = 1,
 }: {
   collectionId: string;
-}): Promise<ProductCardData[]> {
+  /** Prompt 190 -- same "1-indexed, defaults to page 1" contract as
+   *  getCategoryProducts/getAllActiveProducts; no collection currently
+   *  has enough products to need this, but the same unbounded-query risk
+   *  applies the moment one does, so it gets the same fix. */
+  page?: number;
+}): Promise<PaginatedProducts> {
   // Tagged "categories" + "products" + "brands" -- same reasoning as
   // getCategoryProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
@@ -460,25 +523,37 @@ export async function getCollectionProducts({
     "products",
     "brands",
   ]);
-  const { data, error } = await supabase
+  const from = (page - 1) * PRODUCTS_PAGE_SIZE;
+  const { data, error, count } = await supabase
     .from("products")
-    .select(`${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`)
+    .select(
+      `${PRODUCT_CARD_SELECT}, product_collections!inner(collection_id)`,
+      { count: "exact" }
+    )
     .eq("is_active", true)
     .eq("product_collections.collection_id", collectionId)
-    .order("sort_order", { ascending: true });
+    // Prompt 190 -- same "only the primary image is ever rendered"
+    // narrowing as getCategoryProducts' own identical filter above.
+    .eq("images.is_primary", true)
+    .order("sort_order", { ascending: true })
+    .range(from, from + PRODUCTS_PAGE_SIZE - 1);
 
-  return error || !data
-    ? []
-    : data.map((p) => toCardData(p as unknown as RawProductCard));
+  return {
+    products:
+      error || !data
+        ? []
+        : data.map((p) => toCardData(p as unknown as RawProductCard)),
+    totalCount: count ?? 0,
+  };
 }
 
 /** Every active product, no category/collection filter -- the site-wide
  *  /products listing page (Prompt 25), which is what the homepage's
- *  "All" tab (Prompt 24) links to. Unbounded (no range/count), same as
- *  getCollectionProducts above and for the same reason: this backs a
- *  full listing page that shows everything, not a capped preview -- the
- *  homepage's own capped "All" tab has its own separate, bounded query
- *  in ProductsSection.tsx (getAllProductsTab) and was deliberately never
+ *  "All" tab (Prompt 24) links to. Paginated (Prompt 190; previously
+ *  unbounded) via the same PRODUCTS_PAGE_SIZE page/range as
+ *  getCategoryProducts/getCollectionProducts -- the homepage's own
+ *  capped "All" tab has its own separate, bounded query in
+ *  ProductsSection.tsx (getAllProductsTab) and was deliberately never
  *  built on this function either.
  *
  *  Prompt 87 (Phase B): optional `brandId` -- the /products page's new
@@ -488,7 +563,14 @@ export async function getCollectionProducts({
  *  it, so this is purely additive to this function's contract. */
 export async function getAllActiveProducts({
   brandId,
-}: { brandId?: string | null } = {}): Promise<ProductCardData[]> {
+  page = 1,
+}: {
+  brandId?: string | null;
+  /** Prompt 190 -- same "1-indexed, defaults to page 1" contract as
+   *  getCategoryProducts; see PaginatedProducts' own comment for why the
+   *  return shape changed from a plain array to { products, totalCount }. */
+  page?: number;
+} = {}): Promise<PaginatedProducts> {
   // Tagged "categories" + "products" + "brands" -- same reasoning as
   // getCategoryProducts/getCollectionProducts above.
   const supabase = createPublicClient(REVALIDATE_SECONDS.category, [
@@ -498,16 +580,28 @@ export async function getAllActiveProducts({
   ]);
   let query = supabase
     .from("products")
-    .select(PRODUCT_CARD_SELECT)
+    .select(PRODUCT_CARD_SELECT, { count: "exact" })
     .eq("is_active", true)
+    // Prompt 190 -- same "only the primary image is ever rendered"
+    // narrowing as getCategoryProducts' own identical filter.
+    .eq("images.is_primary", true)
     .order("sort_order", { ascending: true });
 
   if (brandId) query = query.eq("brand_id", brandId);
 
-  const { data, error } = await query;
-  return error || !data
-    ? []
-    : data.map((p) => toCardData(p as unknown as RawProductCard));
+  const from = (page - 1) * PRODUCTS_PAGE_SIZE;
+  const { data, error, count } = await query.range(
+    from,
+    from + PRODUCTS_PAGE_SIZE - 1
+  );
+
+  return {
+    products:
+      error || !data
+        ? []
+        : data.map((p) => toCardData(p as unknown as RawProductCard)),
+    totalCount: count ?? 0,
+  };
 }
 
 export async function getActiveProductSlugs(): Promise<{ slug: string }[]> {
@@ -528,7 +622,7 @@ const PRODUCT_DETAIL_SELECT = `
   moq, stock_quantity, category_id,
   category:categories(name_en, name_ar),
   brand:brands(name_en, name_ar),
-  images:product_images(storage_path, is_primary, sort_order),
+  images:product_images(storage_path, thumbnail_storage_path, is_primary, sort_order),
   sizes:product_sizes(id, size_label, sort_order, is_active, stock_quantity)
 `;
 
@@ -555,7 +649,12 @@ type RawProductDetail = {
   category: RawCategory;
   /** Prompt 87 -- same nullable-embed shape as category above. */
   brand: RawBrand;
-  images: { storage_path: string; is_primary: boolean; sort_order: number }[];
+  images: {
+    storage_path: string;
+    thumbnail_storage_path: string | null;
+    is_primary: boolean;
+    sort_order: number;
+  }[];
   sizes: {
     id: string;
     size_label: string;
@@ -617,6 +716,7 @@ export async function getProductBySlug(
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((img) => ({
         storagePath: img.storage_path,
+        thumbnailStoragePath: img.thumbnail_storage_path,
         isPrimary: img.is_primary,
         sortOrder: img.sort_order,
       })),
@@ -684,6 +784,9 @@ export async function getRelatedProducts({
     .eq("is_active", true)
     .eq("category_id", categoryId)
     .neq("id", excludeProductId)
+    // Prompt 190 -- same "only the primary image is ever rendered"
+    // narrowing as getCategoryProducts' own identical filter.
+    .eq("images.is_primary", true)
     .order("sort_order", { ascending: true })
     .limit(RELATED_PRODUCTS_LIMIT);
 

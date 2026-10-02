@@ -65,7 +65,10 @@
     "allCollections": "الكل",
     "brandLabel": "العلامة التجارية",
     "allBrands": "الكل",
-    "enter": "دخول"
+    "enter": "دخول",
+    "previousPage": "السابق",
+    "nextPage": "التالي",
+    "pageLabel": "صفحة {number}"
   },
   "Videos": {
     "heading": "شاهدها عن قرب",

@@ -1,11 +1,13 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import ProductCard from "@/components/product/ProductCard";
 import FilterGroup from "@/components/product/FilterGroup";
+import PaginationControls from "@/components/product/PaginationControls";
 import {
   getAllActiveProducts,
   getBrandBySlug,
   getBrandsWithActiveProducts,
 } from "@/lib/catalog";
+import { PRODUCTS_PAGE_SIZE } from "@/lib/config";
 
 // Sibling to app/[locale]/(marketing)/products/[slug]/page.tsx -- a static
 // segment (this file) and a dynamic segment ([slug]) coexisting under the
@@ -53,14 +55,22 @@ export default async function AllProductsPage({
   const t = await getTranslations("Products");
 
   const brandParam = typeof sp.brand === "string" ? sp.brand : undefined;
+  // Prompt 190 -- 1-indexed, clamped to >= 1 so a malformed/negative
+  // "?page=" degrades to page 1 instead of producing a nonsensical
+  // negative .range() offset.
+  const pageParam = typeof sp.page === "string" ? Number(sp.page) : 1;
+  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+
   const [selectedBrand, brands] = await Promise.all([
     brandParam ? getBrandBySlug(brandParam) : Promise.resolve(null),
     getBrandsWithActiveProducts(),
   ]);
 
-  const products = await getAllActiveProducts({
+  const { products, totalCount } = await getAllActiveProducts({
     brandId: selectedBrand?.id ?? null,
+    page,
   });
+  const totalPages = Math.ceil(totalCount / PRODUCTS_PAGE_SIZE);
 
   const hasFilters = Boolean(selectedBrand);
 
@@ -143,6 +153,16 @@ export default async function AllProductsPage({
           ))}
         </div>
       )}
+
+      <PaginationControls
+        basePath="/products"
+        currentPage={page}
+        totalPages={totalPages}
+        preserveParams={{ brand: brandParam }}
+        previousLabel={t("previousPage")}
+        nextLabel={t("nextPage")}
+        pageLabel={(n) => t("pageLabel", { number: n })}
+      />
     </div>
   );
 }

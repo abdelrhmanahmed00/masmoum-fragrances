@@ -11,6 +11,11 @@ export type AdminCategoryRow = {
    *  lib/supabase/storage.ts). Null until an admin uploads one; the
    *  homepage strip renders a graceful placeholder tile until then. */
   image_storage_path: string | null;
+  /** Prompt 190 -- null for any category whose image was uploaded before
+   *  this prompt, or whose thumbnail generation/upload failed
+   *  (best-effort, see lib/admin/categories.ts). Every read falls back to
+   *  image_storage_path when this is null. */
+  thumbnail_storage_path: string | null;
 };
 
 export type CategoryFieldErrors = Partial<

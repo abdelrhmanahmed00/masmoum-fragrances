@@ -1,5 +1,9 @@
 export type ProductDetailImage = {
   storagePath: string;
+  /** Prompt 190 -- null for any image uploaded before this prompt. The
+   *  gallery's main viewer always uses storagePath (full size); its own
+   *  small thumbnail strip prefers this, falling back to storagePath. */
+  thumbnailStoragePath: string | null;
   isPrimary: boolean;
   sortOrder: number;
 };

@@ -131,6 +131,10 @@ export async function createCategory(
   const { fieldErrors, values } = validate(formData);
   const { error: fileError, file } = validateImageFile(formData.get("image"));
   if (fileError) fieldErrors.image = fileError;
+  // Prompt 190 -- same best-effort treatment as product_images: a missing
+  // or invalid thumbnail never blocks the real upload, it just leaves
+  // thumbnail_storage_path null (every read falls back to image_storage_path).
+  const { file: thumbnailFile } = validateImageFile(formData.get("imageThumbnail"));
 
   if (!values || fileError) {
     return {
@@ -141,9 +145,11 @@ export async function createCategory(
   }
 
   let image_storage_path: string | null = null;
+  let thumbnail_storage_path: string | null = null;
   if (file) {
     const extension = EXTENSION_BY_MIME_TYPE[file.type];
-    const path = `${crypto.randomUUID()}.${extension}`;
+    const uuid = crypto.randomUUID();
+    const path = `${uuid}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
       .upload(path, file, {
@@ -159,15 +165,31 @@ export async function createCategory(
       };
     }
     image_storage_path = path;
+
+    if (thumbnailFile) {
+      const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
+      const thumbPath = `${uuid}-thumb.${thumbExtension}`;
+      const { error: thumbUploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(thumbPath, thumbnailFile, {
+          contentType: thumbnailFile.type,
+          upsert: false,
+          cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+        });
+      if (!thumbUploadError) thumbnail_storage_path = thumbPath;
+    }
   }
 
   const { error } = await supabase
     .from("categories")
-    .insert({ ...values, image_storage_path });
+    .insert({ ...values, image_storage_path, thumbnail_storage_path });
 
   if (error) {
     if (image_storage_path) {
-      await supabase.storage.from(BUCKET).remove([image_storage_path]);
+      const orphaned = thumbnail_storage_path
+        ? [image_storage_path, thumbnail_storage_path]
+        : [image_storage_path];
+      await supabase.storage.from(BUCKET).remove(orphaned);
     }
     if (error.code === UNIQUE_VIOLATION) {
       return {
@@ -193,6 +215,7 @@ export async function updateCategory(
   const { fieldErrors, values } = validate(formData);
   const { error: fileError, file } = validateImageFile(formData.get("image"));
   if (fileError) fieldErrors.image = fileError;
+  const { file: thumbnailFile } = validateImageFile(formData.get("imageThumbnail"));
 
   if (!values || fileError) {
     return {
@@ -230,7 +253,7 @@ export async function updateCategory(
 
   const { data: existing, error: fetchError } = await supabase
     .from("categories")
-    .select("image_storage_path")
+    .select("image_storage_path, thumbnail_storage_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -239,7 +262,8 @@ export async function updateCategory(
   }
 
   const extension = EXTENSION_BY_MIME_TYPE[file.type];
-  const newPath = `${crypto.randomUUID()}.${extension}`;
+  const uuid = crypto.randomUUID();
+  const newPath = `${uuid}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -256,15 +280,34 @@ export async function updateCategory(
     };
   }
 
+  let newThumbnailPath: string | null = null;
+  if (thumbnailFile) {
+    const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
+    const candidatePath = `${uuid}-thumb.${thumbExtension}`;
+    const { error: thumbUploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(candidatePath, thumbnailFile, {
+        contentType: thumbnailFile.type,
+        upsert: false,
+        cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+      });
+    if (!thumbUploadError) newThumbnailPath = candidatePath;
+  }
+
   const { error: updateError } = await supabase
     .from("categories")
-    .update({ ...values, image_storage_path: newPath })
+    .update({
+      ...values,
+      image_storage_path: newPath,
+      thumbnail_storage_path: newThumbnailPath,
+    })
     .eq("id", id);
 
   if (updateError) {
     // DB row still points at the OLD (still-intact) image (or null) --
-    // clean up only the newly-uploaded, now-orphaned file.
-    await supabase.storage.from(BUCKET).remove([newPath]);
+    // clean up only the newly-uploaded, now-orphaned file(s).
+    const orphaned = newThumbnailPath ? [newPath, newThumbnailPath] : [newPath];
+    await supabase.storage.from(BUCKET).remove(orphaned);
     if (updateError.code === UNIQUE_VIOLATION) {
       return {
         status: "error",
@@ -278,17 +321,18 @@ export async function updateCategory(
     };
   }
 
-  // New image confirmed live in the DB -- now safe to remove the old one,
-  // if there was one. Best-effort: logged, not fatal, same reasoning as
-  // lib/admin/hero-slides.ts's own cleanup step.
-  if (existing.image_storage_path) {
-    const { error: cleanupError } = await supabase.storage
-      .from(BUCKET)
-      .remove([existing.image_storage_path]);
+  // New image confirmed live in the DB -- now safe to remove the old
+  // one(s), if there were any. Best-effort: logged, not fatal, same
+  // reasoning as lib/admin/hero-slides.ts's own cleanup step.
+  const oldPaths = [existing.image_storage_path, existing.thumbnail_storage_path].filter(
+    (p): p is string => Boolean(p)
+  );
+  if (oldPaths.length > 0) {
+    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove(oldPaths);
 
     if (cleanupError) {
       console.warn(
-        `[categories] Old Storage object cleanup failed for "${existing.image_storage_path}" after replacing category ${id}'s image. File is now orphaned in the bucket.`,
+        `[categories] Old Storage object cleanup failed for "${oldPaths.join(", ")}" after replacing category ${id}'s image. File(s) now orphaned in the bucket.`,
         cleanupError
       );
     }
@@ -334,7 +378,7 @@ export async function deleteCategory(
   // cleaning up.
   const { data: existing } = await supabase
     .from("categories")
-    .select("image_storage_path")
+    .select("image_storage_path, thumbnail_storage_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -358,14 +402,15 @@ export async function deleteCategory(
   // reasoning as every other delete-with-image function in this project:
   // a failed cleanup leaves a harmless orphaned file, not a broken
   // reference from a delete that only half-completed.
-  if (existing?.image_storage_path) {
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET)
-      .remove([existing.image_storage_path]);
+  const pathsToRemove = [existing?.image_storage_path, existing?.thumbnail_storage_path].filter(
+    (p): p is string => Boolean(p)
+  );
+  if (pathsToRemove.length > 0) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove(pathsToRemove);
 
     if (storageError) {
       console.warn(
-        `[categories] Storage cleanup failed for "${existing.image_storage_path}" after deleting category ${id}.`,
+        `[categories] Storage cleanup failed for "${pathsToRemove.join(", ")}" after deleting category ${id}.`,
         storageError
       );
     }

@@ -8,7 +8,7 @@ import {
 } from "@/app/admin/(dashboard)/categories/actions";
 import { slugify } from "@/lib/slugify";
 import { getPublicStorageUrl } from "@/lib/supabase/storage";
-import { compressImage } from "@/lib/image-compression";
+import { compressImage, THUMBNAIL_COMPRESSION } from "@/lib/image-compression";
 import FormField from "./FormField";
 import {
   CATEGORY_ACTION_INITIAL_STATE,
@@ -54,6 +54,11 @@ export default function CategoryForm({
   const [slugFollowsName, setSlugFollowsName] = useState(mode === "create");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Prompt 190 -- same hidden-second-file pairing as
+  // ProductImagesSection.tsx; see that file's own comment and
+  // lib/admin/categories.ts's createCategory/updateCategory for the
+  // server side.
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const [clientFileError, setClientFileError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
@@ -98,6 +103,19 @@ export default function CategoryForm({
       dt.items.add(effectiveFile);
       fileInputRef.current.files = dt.files;
     }
+
+    // Prompt 190 -- from the ORIGINAL file, same "don't compound two lossy
+    // re-encodes" reasoning as ProductImagesSection.tsx's own comment.
+    try {
+      const thumbnailFile = await compressImage(file, THUMBNAIL_COMPRESSION);
+      if (thumbnailInputRef.current) {
+        const dt = new DataTransfer();
+        dt.items.add(thumbnailFile);
+        thumbnailInputRef.current.files = dt.files;
+      }
+    } catch (error) {
+      console.warn("[CategoryForm] Thumbnail generation failed:", error);
+    }
   }
 
   return (
@@ -124,11 +142,13 @@ export default function CategoryForm({
         {mode === "edit" && category?.image_storage_path ? (
           <div className="relative h-24 w-40 overflow-hidden rounded-btn bg-brand-surface">
             {/* Plain <img>, not next/image -- same small admin-only
-                current-image preview as HeroSlideForm.tsx's own. */}
+                current-image preview as HeroSlideForm.tsx's own. Prompt
+                190 -- prefers the thumbnail, same reasoning as the
+                categories list page's own preview. */}
             <img
               src={getPublicStorageUrl(
                 "category-images",
-                category.image_storage_path
+                category.thumbnail_storage_path ?? category.image_storage_path
               )}
               alt=""
               className="h-full w-full object-cover"
@@ -159,6 +179,12 @@ export default function CategoryForm({
         {isCompressing ? (
           <p className="text-xs text-brand-gray">Compressing image…</p>
         ) : null}
+        <input
+          ref={thumbnailInputRef}
+          type="file"
+          name="imageThumbnail"
+          hidden
+        />
       </section>
 
       <FormField

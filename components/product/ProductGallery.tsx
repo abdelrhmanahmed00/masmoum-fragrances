@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
-type GalleryImage = { url: string; sortOrder: number };
+// Prompt 190 -- thumbUrl added: the main swiper below genuinely needs
+// full-size (`url`), but the small 64px nav strip further down is exactly
+// the thumbnail context the dual-size upload exists for.
+type GalleryImage = { url: string; thumbUrl: string; sortOrder: number };
 
 // CONFIRMED from the reference site (re-fetched shop-gulforchid.com/
 // products/belgravia and inspected its <media-gallery> markup directly):
@@ -128,7 +131,7 @@ export default function ProductGallery({
                     : "border-brand-border")
                 }
               >
-                <Image src={img.url} alt="" fill sizes="64px" className="object-cover" />
+                <Image src={img.thumbUrl} alt="" fill sizes="64px" className="object-cover" />
               </button>
             ))}
           </div>

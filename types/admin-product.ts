@@ -147,6 +147,11 @@ export type AdminProductImageRow = {
   id: string;
   product_id: string;
   storage_path: string;
+  /** Prompt 190 -- null for any image uploaded before this prompt, or any
+   *  upload whose thumbnail generation/upload failed (best-effort, see
+   *  lib/admin/product-images.ts's uploadProductImage comment). Every read
+   *  call site falls back to storage_path when this is null. */
+  thumbnail_storage_path: string | null;
   sort_order: number;
   /** Exactly one row per product has this true whenever the product has
    *  at least one image -- see lib/admin/product-images.ts's own comment

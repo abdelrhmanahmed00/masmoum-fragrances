@@ -50,6 +50,13 @@ export default async function ProductPage({
 
   const images = product.images.map((img) => ({
     url: getPublicStorageUrl("product-images", img.storagePath),
+    // Prompt 190 -- the gallery's own small thumbnail strip AND the
+    // quote-line-item snapshot below both want this; the gallery's main
+    // viewer deliberately keeps using the full-size `url` above instead.
+    thumbUrl: getPublicStorageUrl(
+      "product-images",
+      img.thumbnailStoragePath ?? img.storagePath
+    ),
     sortOrder: img.sortOrder,
   }));
 
@@ -148,7 +155,7 @@ export default async function ProductPage({
             productNameEn={product.name_en}
             productNameAr={product.name_ar}
             categoryName={product.categoryName}
-            imageUrl={images[0]?.url ?? null}
+            imageUrl={images[0]?.thumbUrl ?? null}
             sizes={product.sizes}
             stockQuantity={product.stockQuantity}
             moq={product.moq}

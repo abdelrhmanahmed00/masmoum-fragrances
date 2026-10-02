@@ -6,6 +6,7 @@ import { uploadProductImageAction } from "@/app/admin/(dashboard)/products/[id]/
 import {
   compressImage,
   PRODUCT_IMAGE_COMPRESSION,
+  THUMBNAIL_COMPRESSION,
 } from "@/lib/image-compression";
 import {
   PRODUCT_IMAGE_ACTION_INITIAL_STATE,
@@ -43,6 +44,11 @@ export default function ProductImagesSection({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Prompt 190 -- a second, hidden file input carrying the thumbnail
+  // variant generated below, submitted in the same FormData as "file"
+  // under the name "thumbnailFile" (see uploadProductImage's own comment
+  // for why this is a second real File, not derived server-side).
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
 
@@ -106,6 +112,25 @@ export default function ProductImagesSection({
       dt.items.add(effectiveFile);
       fileInputRef.current.files = dt.files;
     }
+
+    // Prompt 190: a SECOND, independent compression pass from the
+    // ORIGINAL `file` (not from `effectiveFile`) -- resizing down from the
+    // already-downscaled full variant would compound two lossy re-encodes
+    // for no benefit, since createImageBitmap can decode the original at
+    // any target size directly. Best-effort same as the full variant: on
+    // any failure this silently leaves the thumbnail input empty, and
+    // uploadProductImage treats a missing thumbnailFile as "no thumbnail
+    // yet, fall back to full" rather than an error.
+    try {
+      const thumbnailFile = await compressImage(file, THUMBNAIL_COMPRESSION);
+      if (thumbnailInputRef.current) {
+        const dt = new DataTransfer();
+        dt.items.add(thumbnailFile);
+        thumbnailInputRef.current.files = dt.files;
+      }
+    } catch (error) {
+      console.warn("[ProductImagesSection] Thumbnail generation failed:", error);
+    }
   }
 
   return (
@@ -165,6 +190,11 @@ export default function ProductImagesSection({
           {isCompressing ? (
             <p className="mt-1 text-xs text-brand-gray">Compressing image…</p>
           ) : null}
+          {/* Prompt 190 -- never shown/clicked directly, only populated
+              programmatically in handleFileChange above; hidden rather
+              than visually hidden-but-focusable since it's genuinely not
+              a separate user action. */}
+          <input ref={thumbnailInputRef} type="file" name="thumbnailFile" hidden />
         </div>
 
         <button

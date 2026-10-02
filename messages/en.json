@@ -65,7 +65,10 @@
     "allCollections": "All",
     "brandLabel": "Brand",
     "allBrands": "All",
-    "enter": "Enter"
+    "enter": "Enter",
+    "previousPage": "Previous",
+    "nextPage": "Next",
+    "pageLabel": "Page {number}"
   },
   "Videos": {
     "heading": "See It In Action",

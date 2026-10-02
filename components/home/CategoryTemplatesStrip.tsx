@@ -66,8 +66,13 @@ export default async function CategoryTemplatesStrip() {
       >
         {categories.map((category) => {
           const name = locale === "ar" ? category.name_ar : category.name_en;
-          const imageUrl = category.image_storage_path
-            ? getPublicStorageUrl("category-images", category.image_storage_path)
+          // Prompt 190 -- prefers the thumbnail (falls back to the
+          // full-size path for any category image uploaded before this
+          // prompt): this tile never renders wider than ~176px.
+          const imageStoragePath =
+            category.thumbnail_storage_path ?? category.image_storage_path;
+          const imageUrl = imageStoragePath
+            ? getPublicStorageUrl("category-images", imageStoragePath)
             : null;
 
           return (

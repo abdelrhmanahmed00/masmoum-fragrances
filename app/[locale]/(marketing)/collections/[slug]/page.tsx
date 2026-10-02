@@ -1,17 +1,24 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import ProductCard from "@/components/product/ProductCard";
+import PaginationControls from "@/components/product/PaginationControls";
 import {
   getCollectionBySlug,
   getActiveCollectionSlugs,
   getCollectionProducts,
 } from "@/lib/catalog";
+import { PRODUCTS_PAGE_SIZE } from "@/lib/config";
 
 // Same ISR/searchParams reasoning as the category page — see its comment.
-// This page has no filters (per the project's asymmetric filter design:
+// This page has no FILTERS (per the project's asymmetric filter design:
 // gender + collection filters live on category pages, not the other way
-// around), so it doesn't read searchParams at all and can be a plain
-// static/ISR page with no per-request dynamic fallback needed.
+// around) -- that part of the original comment still holds. Prompt 190
+// adds a `page` searchParam for pagination only, which means this page
+// now goes through the same SSG->dynamic-when-a-query-string-is-present
+// fallback the category/products pages already accepted (see their own
+// comments) -- the underlying Supabase read stays revalidate-tagged
+// either way, so repeat requests for the same page number still hit
+// Next's Data Cache rather than Supabase.
 //
 // Literal 3600, not an import — see the category page's comment on why
 // route segment config exports can't reference REVALIDATE_SECONDS.
@@ -24,15 +31,25 @@ export async function generateStaticParams() {
 
 export default async function CollectionPage({
   params,
+  searchParams,
 }: PageProps<"/[locale]/collections/[slug]">) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
+  const sp = await searchParams;
 
   const collection = await getCollectionBySlug(slug);
   if (!collection) notFound();
 
   const t = await getTranslations("Products");
-  const products = await getCollectionProducts({ collectionId: collection.id });
+  // Prompt 190 -- same clamped "1-indexed, bad input falls back to page
+  // 1" contract as /products and the category page.
+  const pageParam = typeof sp.page === "string" ? Number(sp.page) : 1;
+  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const { products, totalCount } = await getCollectionProducts({
+    collectionId: collection.id,
+    page,
+  });
+  const totalPages = Math.ceil(totalCount / PRODUCTS_PAGE_SIZE);
   const name = locale === "ar" ? collection.name_ar : collection.name_en;
 
   return (
@@ -88,6 +105,16 @@ export default async function CollectionPage({
           ))}
         </div>
       )}
+
+      <PaginationControls
+        basePath={`/collections/${slug}`}
+        currentPage={page}
+        totalPages={totalPages}
+        preserveParams={{}}
+        previousLabel={t("previousPage")}
+        nextLabel={t("nextPage")}
+        pageLabel={(n) => t("pageLabel", { number: n })}
+      />
     </div>
   );
 }

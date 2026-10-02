@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import ProductCard from "@/components/product/ProductCard";
 import FilterGroup from "@/components/product/FilterGroup";
+import PaginationControls from "@/components/product/PaginationControls";
 import PerfumeGenderTemplate from "@/components/category/PerfumeGenderTemplate";
 import {
   getCategoryBySlug,
@@ -14,6 +15,7 @@ import {
   parseGenderParam,
   VALID_GENDERS,
 } from "@/lib/catalog";
+import { PRODUCTS_PAGE_SIZE } from "@/lib/config";
 
 // ISR per lib/config.ts's plan: pre-rendered for every known active
 // category slug (generateStaticParams below) and revalidated on this
@@ -87,17 +89,23 @@ export default async function CategoryPage({
 
   const collectionParam = typeof sp.collection === "string" ? sp.collection : undefined;
   const brandParam = typeof sp.brand === "string" ? sp.brand : undefined;
+  // Prompt 190 -- same clamped "1-indexed, bad input falls back to page
+  // 1" contract as the /products page's own pageParam handling.
+  const pageParam = typeof sp.page === "string" ? Number(sp.page) : 1;
+  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+
   const [selectedCollection, selectedBrand] = await Promise.all([
     collectionParam ? getCollectionBySlug(collectionParam) : Promise.resolve(null),
     brandParam ? getBrandBySlug(brandParam) : Promise.resolve(null),
   ]);
 
-  const [products, collections, brands] = await Promise.all([
+  const [{ products, totalCount }, collections, brands] = await Promise.all([
     getCategoryProducts({
       categoryId: category.id,
       gender: showGenderFilter ? gender : undefined,
       collectionId: selectedCollection?.id ?? null,
       brandId: selectedBrand?.id ?? null,
+      page,
     }),
     getActiveCollectionsList(),
     // Prompt 126 (Phase 2) -- category-SCOPED, not
@@ -105,6 +113,7 @@ export default async function CategoryPage({
     // function, reused as-is there, untouched here).
     getBrandsWithActiveProductsInCategory(category.id),
   ]);
+  const totalPages = Math.ceil(totalCount / PRODUCTS_PAGE_SIZE);
 
   const hasFilters = Boolean(
     (showGenderFilter && gender) || selectedCollection || selectedBrand
@@ -225,6 +234,20 @@ export default async function CategoryPage({
           ))}
         </div>
       )}
+
+      <PaginationControls
+        basePath={basePath}
+        currentPage={page}
+        totalPages={totalPages}
+        preserveParams={{
+          gender: showGenderFilter ? gender : undefined,
+          collection: collectionParam,
+          brand: brandParam,
+        }}
+        previousLabel={t("previousPage")}
+        nextLabel={t("nextPage")}
+        pageLabel={(n) => t("pageLabel", { number: n })}
+      />
     </div>
   );
 }

@@ -34,7 +34,7 @@ export async function getProductImages(
 ): Promise<AdminProductImageRow[]> {
   const { data, error } = await supabase
     .from("product_images")
-    .select("id, product_id, storage_path, sort_order, is_primary")
+    .select("id, product_id, storage_path, thumbnail_storage_path, sort_order, is_primary")
     .eq("product_id", productId)
     .order("sort_order", { ascending: true });
 
@@ -42,12 +42,12 @@ export async function getProductImages(
 }
 
 /**
- * Upload a new image. Order of operations is deliberate: Storage upload
+ * Upload a new image. Order of operations is deliberate: Storage upload(s)
  * FIRST, product_images row SECOND -- never insert a DB row pointing at
  * a file that didn't actually make it into the bucket. If the DB insert
- * then fails for any reason, the now-orphaned Storage object is cleaned
- * up immediately (not left to be caught later) since we still have the
- * path in hand at that exact moment -- the only case this function
+ * then fails for any reason, the now-orphaned Storage object(s) are
+ * cleaned up immediately (not left to be caught later) since we still have
+ * the path(s) in hand at that exact moment -- the only case this function
  * doesn't (can't) fully protect against is the reverse failure a moment
  * later (process killed between insert success and function return),
  * which is an inherent limit of two separate systems with no shared
@@ -56,6 +56,20 @@ export async function getProductImages(
  * design before Prompt 30's RPC) -- not worth a full RPC here since
  * nothing about this is a race-safety concern (single-admin model, see
  * the 0019 migration's own comment).
+ *
+ * Prompt 190: `thumbnailFile` is a SECOND, optional File in the same
+ * FormData -- ProductImagesSection.tsx generates it client-side (same
+ * compressImage() call, THUMBNAIL_COMPRESSION instead of
+ * PRODUCT_IMAGE_COMPRESSION) alongside the existing full-size `file`, the
+ * same place compression already happens for this project (see
+ * lib/image-compression.ts's own comment on why this stays client-side,
+ * not a new server dependency). Deliberately best-effort, not required:
+ * if it's missing (an older cached admin page, or a client that failed to
+ * generate it) or its own upload fails, this still succeeds with
+ * thumbnail_storage_path left null -- every read call site already falls
+ * back to the full-size storage_path when that's null (lib/catalog.ts), so
+ * a missing thumbnail only means "no byte savings for this one image yet",
+ * never a broken image.
  */
 export async function uploadProductImage(
   supabase: SupabaseClient,
@@ -63,6 +77,7 @@ export async function uploadProductImage(
   formData: FormData
 ): Promise<ProductImageActionState> {
   const file = formData.get("file");
+  const thumbnailFile = formData.get("thumbnailFile");
 
   if (!(file instanceof File) || file.size === 0) {
     const fieldErrors: ProductImageFieldErrors = { file: "Choose an image file." };
@@ -99,8 +114,12 @@ export async function uploadProductImage(
   // path that gets overwritten in place, so a replaced image could show
   // old bytes to some visitors for a while. A brand-new path every time
   // sidesteps that entirely -- there's never anything to invalidate,
-  // because the URL itself always changes.
-  const path = `${productId}/${crypto.randomUUID()}.${extension}`;
+  // because the URL itself always changes. The thumbnail (if present)
+  // shares this SAME uuid with a "-thumb" suffix, not a second random id
+  // -- purely so the two files are visibly paired by name in the bucket;
+  // nothing in the app ever derives one path from the other.
+  const uuid = crypto.randomUUID();
+  const path = `${productId}/${uuid}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -115,6 +134,25 @@ export async function uploadProductImage(
       status: "error",
       message: "Something went wrong uploading the image. Please try again.",
     };
+  }
+
+  let thumbnailPath: string | null = null;
+  if (thumbnailFile instanceof File && thumbnailFile.size > 0) {
+    const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
+    if (thumbExtension) {
+      const candidatePath = `${productId}/${uuid}-thumb.${thumbExtension}`;
+      const { error: thumbUploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(candidatePath, thumbnailFile, {
+          contentType: thumbnailFile.type,
+          upsert: false,
+          cacheControl: String(STORAGE_UPLOAD_CACHE_CONTROL_SECONDS),
+        });
+      // Best-effort per this function's own comment above -- a failed
+      // thumbnail upload doesn't fail the whole operation, it just leaves
+      // thumbnail_storage_path null for this image.
+      if (!thumbUploadError) thumbnailPath = candidatePath;
+    }
   }
 
   // First image for this product auto-becomes primary -- part of the
@@ -133,15 +171,17 @@ export async function uploadProductImage(
   const { error: insertError } = await supabase.from("product_images").insert({
     product_id: productId,
     storage_path: path,
+    thumbnail_storage_path: thumbnailPath,
     sort_order: nextSortOrder,
     is_primary: isFirstImage,
   });
 
   if (insertError) {
-    // The file DID upload -- clean up the now-orphaned object rather
-    // than leave a permanent leak no product_images row will ever
+    // The file(s) DID upload -- clean up the now-orphaned object(s)
+    // rather than leave a permanent leak no product_images row will ever
     // reference.
-    await supabase.storage.from(BUCKET).remove([path]);
+    const orphaned = thumbnailPath ? [path, thumbnailPath] : [path];
+    await supabase.storage.from(BUCKET).remove(orphaned);
     return {
       status: "error",
       message: "Something went wrong saving the image. Please try again.",
@@ -269,7 +309,7 @@ export async function deleteProductImage(
 ): Promise<ProductImageActionState> {
   const { data: image, error: fetchError } = await supabase
     .from("product_images")
-    .select("id, storage_path, is_primary")
+    .select("id, storage_path, thumbnail_storage_path, is_primary")
     .eq("id", imageId)
     .eq("product_id", productId)
     .maybeSingle();
@@ -307,13 +347,17 @@ export async function deleteProductImage(
     }
   }
 
+  const pathsToRemove = image.thumbnail_storage_path
+    ? [image.storage_path, image.thumbnail_storage_path]
+    : [image.storage_path];
+
   const { error: storageError } = await supabase.storage
     .from(BUCKET)
-    .remove([image.storage_path]);
+    .remove(pathsToRemove);
 
   if (storageError) {
     console.warn(
-      `[product-images] Storage object cleanup failed for "${image.storage_path}" after deleting product_images row ${imageId}. File is now orphaned in the bucket.`,
+      `[product-images] Storage object cleanup failed for "${pathsToRemove.join(", ")}" after deleting product_images row ${imageId}. File(s) now orphaned in the bucket.`,
       storageError
     );
   }

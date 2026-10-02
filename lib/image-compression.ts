@@ -55,6 +55,18 @@ const DEFAULT_QUALITY = 0.82;
 export type CompressImageOptions = {
   maxDimension?: number;
   quality?: number;
+  /** Prompt 190: skip the SKIP_COMPRESSION_BELOW_BYTES early-return below.
+   *  That skip exists so a file ALREADY small enough isn't needlessly
+   *  re-encoded -- correct for the single-size case this file originally
+   *  shipped with, but wrong for a thumbnail specifically: the point of a
+   *  thumbnail is a genuinely smaller DIMENSION for a grid/tile context,
+   *  regardless of how small the original's file SIZE happens to be (a
+   *  highly-compressible 2000px graphic under 150KB would otherwise be
+   *  stored as its own full-resolution file as the "thumbnail", which
+   *  defeats the purpose). THUMBNAIL_COMPRESSION below sets this; the
+   *  default (unset) preserves PRODUCT_IMAGE_COMPRESSION's existing
+   *  behavior byte-for-byte. */
+  forceResize?: boolean;
 };
 
 // Product photos are never shown full-bleed: the detail image renders in a
@@ -65,6 +77,24 @@ export type CompressImageOptions = {
 export const PRODUCT_IMAGE_COMPRESSION: CompressImageOptions = {
   maxDimension: 1600,
   quality: 0.8,
+};
+
+// Prompt 190: the "thumbnail" half of every dual-size upload (product
+// cards, category tiles, the product gallery's own small thumbnail strip,
+// quote cart line items) -- every one of those contexts is at most ~292
+// CSS px per this file's own comment above, so 500px still covers a real
+// 1.7x pixel ratio with margin, deliberately short of covering the highest
+// (3x) device pixel ratios pixel-for-pixel: at this project's scale (a
+// wholesale catalog grid, not a zoomable product shot), a grid thumbnail
+// being very slightly soft on the highest-DPI screens is the right side of
+// the tradeoff this file's own quality-vs-weight philosophy already makes
+// elsewhere. Quality dropped to 0.75 (vs 0.8 for the full size) for the
+// same reason: compression artifacts that would show on a 520px detail
+// view are imperceptible shrunk to a ~150px rendered thumbnail.
+export const THUMBNAIL_COMPRESSION: CompressImageOptions = {
+  maxDimension: 500,
+  quality: 0.75,
+  forceResize: true,
 };
 
 /**
@@ -95,7 +125,7 @@ export async function compressImage(
   options: CompressImageOptions = {}
 ): Promise<File> {
   if (!COMPRESSIBLE_MIME_TYPES.has(file.type)) return file;
-  if (file.size <= SKIP_COMPRESSION_BELOW_BYTES) return file;
+  if (!options.forceResize && file.size <= SKIP_COMPRESSION_BELOW_BYTES) return file;
 
   const maxDimension = options.maxDimension ?? DEFAULT_MAX_DIMENSION;
   const quality = options.quality ?? DEFAULT_QUALITY;

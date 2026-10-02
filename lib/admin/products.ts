@@ -383,7 +383,7 @@ export async function deleteProduct(
   // removes these rows the moment the products row is gone.
   const { data: images } = await supabase
     .from("product_images")
-    .select("storage_path")
+    .select("storage_path, thumbnail_storage_path")
     .eq("product_id", id);
 
   const { error } = await supabase.from("products").delete().eq("id", id);
@@ -407,7 +407,15 @@ export async function deleteProduct(
   // failure, does not turn a successful product delete into a reported
   // failure.
   if (images && images.length > 0) {
-    const paths = images.map((img) => img.storage_path);
+    // Prompt 190 -- both variants per image, same "DB cascade can't reach
+    // Storage" gap this function already existed to close; thumbnails
+    // would otherwise orphan forever since nothing else ever cleans them
+    // up once their product_images row is gone.
+    const paths = images.flatMap((img) =>
+      img.thumbnail_storage_path
+        ? [img.storage_path, img.thumbnail_storage_path]
+        : [img.storage_path]
+    );
     const { error: storageError } = await supabase.storage
       .from("product-images")
       .remove(paths);

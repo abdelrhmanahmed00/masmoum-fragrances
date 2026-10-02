@@ -89,6 +89,17 @@ export const REVALIDATE_SECONDS = {
  */
 export const STORAGE_UPLOAD_CACHE_CONTROL_SECONDS = 31536000; // 1 year
 
+/**
+ * Prompt 190 -- egress reduction, lever 3 (query-level): /products and
+ * category pages previously fetched every active product in one
+ * unbounded query (confirmed live: the "perfumes" category alone has 147
+ * active products) -- each with its own thumbnail image, on a single
+ * page view. 24 is a multiple of both grid breakpoints this project's
+ * listing pages actually use (grid-cols-2 mobile, md:grid-cols-4 desktop:
+ * 24/2=12, 24/4=6), so a full page never ends on an awkward partial row.
+ */
+export const PRODUCTS_PAGE_SIZE = 24;
+
 export const siteConfig = {
   name: "Masmoum Fragrances",
   description: "B2B wholesale fragrance manufacturer",

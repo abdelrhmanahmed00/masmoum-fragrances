@@ -74,7 +74,14 @@ export default function ProductImageThumb({
     <div className="w-40 space-y-2 rounded-card border border-brand-border bg-brand-white p-2">
       <div className="relative aspect-square overflow-hidden rounded-btn bg-brand-surface">
         <Image
-          src={getPublicStorageUrl("product-images", image.storage_path)}
+          // Prompt 190 -- this is a 160px admin preview, exactly the
+          // thumbnail-sized context the dual-size upload exists for.
+          // Falls back to the full-size storage_path for any image
+          // uploaded before this prompt (thumbnail_storage_path null).
+          src={getPublicStorageUrl(
+            "product-images",
+            image.thumbnail_storage_path ?? image.storage_path
+          )}
           alt=""
           fill
           sizes="160px"

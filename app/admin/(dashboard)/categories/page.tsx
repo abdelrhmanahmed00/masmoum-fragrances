@@ -24,7 +24,7 @@ async function getAllCategories(): Promise<AdminCategoryRow[]> {
   const { data, error } = await supabase
     .from("categories")
     .select(
-      "id, slug, name_en, name_ar, sort_order, is_active, created_at, image_storage_path"
+      "id, slug, name_en, name_ar, sort_order, is_active, created_at, image_storage_path, thumbnail_storage_path"
     )
     .order("sort_order", { ascending: true });
 
@@ -77,11 +77,13 @@ export default async function AdminCategoriesPage() {
                       {category.image_storage_path ? (
                         // Plain <img>, not next/image -- same small
                         // admin-only preview reasoning as
-                        // HeroSlideForm.tsx's own.
+                        // HeroSlideForm.tsx's own. Prompt 190 -- prefers
+                        // the thumbnail, a 40x56px preview being exactly
+                        // that context.
                         <img
                           src={getPublicStorageUrl(
                             "category-images",
-                            category.image_storage_path
+                            category.thumbnail_storage_path ?? category.image_storage_path
                           )}
                           alt=""
                           className="h-full w-full object-cover"
