@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { uploadImageToBlob, removeStorageValues } from "@/lib/blob";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   AdminProductImageRow,
   ProductImageActionState,
@@ -123,7 +123,7 @@ export async function uploadProductImage(
 
   let url: string;
   try {
-    url = await uploadImageToBlob(path, file, "full");
+    url = await uploadToBlob(path, file, file.type);
   } catch {
     return {
       status: "error",
@@ -137,10 +137,10 @@ export async function uploadProductImage(
     if (thumbExtension) {
       const candidatePath = `${BUCKET}/${productId}/${uuid}-thumb.${thumbExtension}`;
       try {
-        thumbnailUrl = await uploadImageToBlob(
+        thumbnailUrl = await uploadToBlob(
           candidatePath,
           thumbnailFile,
-          "thumbnail"
+          thumbnailFile.type
         );
       } catch {
         // Best-effort per this function's own comment above -- a failed

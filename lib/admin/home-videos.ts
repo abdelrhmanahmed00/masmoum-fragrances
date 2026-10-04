@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
-import { uploadToBlob, uploadImageToBlob, removeStorageValues } from "@/lib/blob";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   AdminHomeVideoRow,
   HomeVideoActionState,
@@ -128,10 +128,7 @@ async function uploadVideo(file: File): Promise<string> {
 
 async function uploadThumbnail(file: File): Promise<string> {
   const path = `${BUCKET}/thumbnails/${crypto.randomUUID()}.${IMAGE_EXTENSION_BY_MIME_TYPE[file.type]}`;
-  // Prompt 195 -- the video's own poster/preview image, a thumbnail-sized
-  // context (not the video itself, which stays on plain uploadToBlob
-  // above -- video isn't in this prompt's compression scope).
-  return uploadImageToBlob(path, file, "thumbnail");
+  return uploadToBlob(path, file, file.type);
 }
 
 async function removeObjects(supabase: SupabaseClient, paths: string[]) {
