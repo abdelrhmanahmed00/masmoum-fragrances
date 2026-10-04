@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify, SLUG_PATTERN } from "@/lib/slugify";
 import { trimmedOrNull } from "@/lib/form-utils";
 import { UNIQUE_VIOLATION, FK_VIOLATION } from "@/lib/admin/shared";
-import { uploadToBlob, removeStorageValues } from "@/lib/blob";
+import { uploadImageToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   CategoryActionState,
   CategoryFieldErrors,
@@ -152,7 +152,7 @@ export async function createCategory(
     const path = `${BUCKET}/${uuid}.${extension}`;
 
     try {
-      image_storage_path = await uploadToBlob(path, file, file.type);
+      image_storage_path = await uploadImageToBlob(path, file, "full");
     } catch {
       return {
         status: "error",
@@ -164,10 +164,10 @@ export async function createCategory(
       const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
       const thumbPath = `${BUCKET}/${uuid}-thumb.${thumbExtension}`;
       try {
-        thumbnail_storage_path = await uploadToBlob(
+        thumbnail_storage_path = await uploadImageToBlob(
           thumbPath,
           thumbnailFile,
-          thumbnailFile.type
+          "thumbnail"
         );
       } catch {
         // Best-effort per this function's own comment -- a failed
@@ -264,7 +264,7 @@ export async function updateCategory(
 
   let newUrl: string;
   try {
-    newUrl = await uploadToBlob(newPath, file, file.type);
+    newUrl = await uploadImageToBlob(newPath, file, "full");
   } catch {
     return {
       status: "error",
@@ -277,10 +277,10 @@ export async function updateCategory(
     const thumbExtension = EXTENSION_BY_MIME_TYPE[thumbnailFile.type];
     const candidatePath = `${BUCKET}/${uuid}-thumb.${thumbExtension}`;
     try {
-      newThumbnailUrl = await uploadToBlob(
+      newThumbnailUrl = await uploadImageToBlob(
         candidatePath,
         thumbnailFile,
-        thumbnailFile.type
+        "thumbnail"
       );
     } catch {
       // Best-effort, same as createCategory.

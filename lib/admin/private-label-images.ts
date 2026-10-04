@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { uploadToBlob, removeStorageValue } from "@/lib/blob";
+import { uploadImageToBlob, removeStorageValue } from "@/lib/blob";
 import {
   PRIVATE_LABEL_IMAGE_SLOTS,
   type AdminPrivateLabelImageRow,
@@ -100,7 +100,7 @@ export async function updatePrivateLabelImage(
 
   let url: string;
   try {
-    url = await uploadToBlob(path, file, file.type);
+    url = await uploadImageToBlob(path, file, "full");
   } catch {
     return {
       status: "error",
