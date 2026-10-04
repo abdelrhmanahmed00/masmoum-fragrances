@@ -11,6 +11,16 @@ the Vercel dashboard yourself. Do this once a month.
 1. Go to **vercel.com → your team → Storage → masmoum2** (the Blob store).
 2. Open the **Usage** tab on that store's page.
 
+**Important — how images must be uploaded:** all product images must go
+through the admin dashboard's own upload form, which compresses in the
+browser (1600px max for the full image, 500px max for thumbnails) before
+anything reaches Blob. Never upload images via a direct script or API
+call — there is no server-side enforcement of these limits (Step 3 of
+Prompt 195 was tried and reverted after it broke real uploads on
+deployment), so a script-based upload would store an uncompressed
+original and silently undo the size reduction this whole document exists
+to protect.
+
 ## What to check, and what's dangerous
 
 | Metric | Hobby limit | Check this | Danger zone |
