@@ -13,6 +13,21 @@ const supabaseHostname = new URL(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co"
 ).hostname;
 
+// Prompt 194 bug fix: Vercel Blob (Prompt 192's migration) serves every
+// image from a *.public.blob.vercel-storage.com subdomain -- this CSP was
+// never updated when that migration shipped, so every real browser
+// silently blocked every single image load site-wide (confirmed via a
+// real Playwright console check: "Loading the image '...' violates the
+// following Content Security Policy directive: img-src ..."). Exactly
+// the same class of gap as Prompt 40's own media-src bug fix above:
+// curl/fetch aren't CSP-governed, so the HTML, the DB rows, and the Blob
+// object itself all checked out fine while a real browser still blocked
+// it. Wildcarded at the subdomain level (every Blob store's public URL
+// follows this exact shape) rather than hardcoding this one store's
+// specific subdomain, so rotating/adding a store never requires editing
+// this file again.
+const BLOB_HOSTNAME_PATTERN = "https://*.public.blob.vercel-storage.com";
+
 /**
  * Baseline security headers, applied on every request.
  *
@@ -69,7 +84,7 @@ function securityHeaders(): Record<string, string> {
     // outside what any CSP directive governs.
     scriptSrc + " https://connect.facebook.net",
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: https://${supabaseHostname} https://www.facebook.com`,
+    `img-src 'self' data: blob: https://${supabaseHostname} ${BLOB_HOSTNAME_PATTERN} https://www.facebook.com`,
     // Prompt 40 bug fix: media-src governs <video>/<audio> `src` loading
     // and was missing entirely -- per the CSP spec it falls back to
     // default-src ('self' only) when absent, which silently blocks any
@@ -82,7 +97,7 @@ function securityHeaders(): Record<string, string> {
     // was a real gap, not a deliberate omission: no video content existed
     // at all until Prompt 37, which added real <video> playback but never
     // revisited this CSP (set up earlier, before videos were a concern).
-    `media-src 'self' https://${supabaseHostname}`,
+    `media-src 'self' https://${supabaseHostname} ${BLOB_HOSTNAME_PATTERN}`,
     // Prompt 136: `blob:` added for the Custom Bottle Designer's
     // submission flow (lib/design-requests.ts) -- it calls
     // `fetch(activeLogoUrl)` on the customer's own local blob: object URL
