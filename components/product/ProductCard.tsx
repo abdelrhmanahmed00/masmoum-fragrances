@@ -113,7 +113,7 @@ export default function ProductCard({
             alt={name}
             fill
             sizes="(min-width: 1024px) 25vw, 50vw"
-            className="object-cover"
+            className="object-contain"
           />
         ) : (
           // Clean placeholder graphic — a product should always have a

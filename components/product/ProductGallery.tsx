@@ -107,7 +107,7 @@ export default function ProductGallery({
               fill
               sizes="(min-width: 768px) 50vw, 100vw"
               priority={index === 0}
-              className="object-cover"
+              className="object-contain"
             />
           </div>
         ))}
@@ -125,13 +125,13 @@ export default function ProductGallery({
                 aria-label={`${index + 1}`}
                 aria-current={index === activeIndex}
                 className={
-                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-btn border-2 transition-colors " +
+                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-btn border-2 bg-brand-surface transition-colors " +
                   (index === activeIndex
                     ? "border-brand-black"
                     : "border-brand-border")
                 }
               >
-                <Image src={img.thumbUrl} alt="" fill sizes="64px" className="object-cover" />
+                <Image src={img.thumbUrl} alt="" fill sizes="64px" className="object-contain" />
               </button>
             ))}
           </div>
