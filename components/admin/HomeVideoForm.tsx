@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
-import { upload } from "@vercel/blob/client";
 import {
   createHomeVideoAction,
   updateHomeVideoAction,
@@ -15,54 +14,15 @@ import {
   type AdminHomeVideoRow,
 } from "@/types/admin-home-video";
 
-// Real, enforced limits (app/admin/api/blob-upload/route.ts's own
-// onBeforeGenerateToken re-checks both of these server-side via Blob's
-// signed token -- these are client-side only for immediate UX feedback,
-// same "advisory, not authoritative" relationship every other client-side
-// check in this project has to its server-side counterpart.
-//
-// 12MB video (not 20MB) -- lowered from the old limit as part of the fix
-// for the ~4.5MB Vercel serverless request-body ceiling that silently hung
-// every upload above it (diagnosed in a prior prompt). That ceiling no
-// longer applies here at all -- the file now goes straight from this
-// browser to Vercel Blob, never through a Server Action body -- but 12MB
-// is still a deliberate, real cap: short homepage carousel clips (a few
-// seconds, per the admin's own guidance below) have no real reason to be
-// bigger, and a hard ceiling bounds both Blob storage cost and how long an
-// admin waits on a mobile connection.
-const MAX_VIDEO_SIZE_BYTES = 12 * 1024 * 1024;
-const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+// Same limits as the "home-videos" Storage bucket's real config
+// (0013 + 0021 migrations) and lib/admin/home-videos.ts's own
+// server-side re-check -- client-side only for immediate UX feedback.
+const MAX_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
+const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm"];
 const MAX_THUMBNAIL_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-const VIDEO_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-  "video/quicktime": "mov",
-};
-const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
-
 type SourceType = "upload" | "external";
-
-type UploadState = {
-  status: "idle" | "uploading" | "done" | "error";
-  progress: number;
-  url: string | null;
-  error: string | null;
-  fileName: string | null;
-};
-
-const IDLE_UPLOAD: UploadState = {
-  status: "idle",
-  progress: 0,
-  url: null,
-  error: null,
-  fileName: null,
-};
 
 /**
  * Upload vs. external URL -- mutually exclusive by construction, not by
@@ -73,19 +33,6 @@ const IDLE_UPLOAD: UploadState = {
  * field). home_videos_has_a_source (0013 migration) is still the DB's own
  * backstop for "at least one," but this UI never lets the admin end up in
  * an ambiguous both-or-neither state to begin with.
- *
- * Direct-to-Blob client uploads: both the video file and the thumbnail
- * are uploaded straight from this browser to Vercel Blob (via `upload()`
- * from "@vercel/blob/client", authorized by
- * app/admin/api/blob-upload/route.ts) the moment they're selected --
- * never as part of the Server Action's own request body. This is the fix
- * for the ~4.5MB Vercel serverless body-size ceiling that silently hung
- * the old file-in-FormData upload for any realistically-sized video (see
- * that prompt's diagnosis: a 0.38MB file succeeded, a 5.28MB one hung
- * forever with zero server response). The thumbnail gets the same
- * treatment even though its own 5MB limit is only marginally above that
- * ceiling -- not worth leaving a second, narrower version of the exact
- * same bug in place.
  */
 export default function HomeVideoForm({
   mode,
@@ -107,73 +54,29 @@ export default function HomeVideoForm({
   const [sourceType, setSourceType] = useState<SourceType>(
     video?.external_url && !video.storage_path ? "external" : "upload"
   );
+  const [clientVideoError, setClientVideoError] = useState<string | null>(null);
+  const [clientThumbError, setClientThumbError] = useState<string | null>(null);
   const [removeThumbnail, setRemoveThumbnail] = useState(false);
-  const [videoUpload, setVideoUpload] = useState<UploadState>(IDLE_UPLOAD);
-  const [thumbUpload, setThumbUpload] = useState<UploadState>(IDLE_UPLOAD);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const thumbInputRef = useRef<HTMLInputElement>(null);
+  const [isCompressingThumb, setIsCompressingThumb] = useState(false);
 
   const fieldErrors = state.status === "error" ? state.fieldErrors : undefined;
 
-  async function handleVideoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleVideoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) {
-      setVideoUpload(IDLE_UPLOAD);
-      return;
-    }
+    if (!file) return setClientVideoError(null);
     if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
-      setVideoUpload({
-        ...IDLE_UPLOAD,
-        status: "error",
-        error: "Only MP4, WEBM, or QuickTime (MOV) videos are allowed.",
-      });
+      setClientVideoError("Only MP4 or WEBM videos are allowed.");
       e.target.value = "";
       return;
     }
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
-      setVideoUpload({
-        ...IDLE_UPLOAD,
-        status: "error",
-        error: `"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB -- the limit is 12MB. Try a shorter clip.`,
-      });
+      setClientVideoError(
+        `"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB -- the limit is 20MB.`
+      );
       e.target.value = "";
       return;
     }
-
-    setVideoUpload({ status: "uploading", progress: 0, url: null, error: null, fileName: file.name });
-
-    const extension = VIDEO_EXTENSION_BY_MIME_TYPE[file.type];
-    const pathname = `home-videos/videos/${crypto.randomUUID()}.${extension}`;
-
-    try {
-      const result = await upload(pathname, file, {
-        access: "public",
-        handleUploadUrl: "/admin/api/blob-upload",
-        contentType: file.type,
-        onUploadProgress: ({ percentage }) => {
-          setVideoUpload((prev) => ({ ...prev, progress: percentage }));
-        },
-      });
-      setVideoUpload({
-        status: "done",
-        progress: 100,
-        url: result.url,
-        error: null,
-        fileName: file.name,
-      });
-    } catch (error) {
-      setVideoUpload({
-        status: "error",
-        progress: 0,
-        url: null,
-        error:
-          error instanceof Error
-            ? `Upload failed: ${error.message}`
-            : "Upload failed. Please try again.",
-        fileName: file.name,
-      });
-      if (videoInputRef.current) videoInputRef.current.value = "";
-    }
+    setClientVideoError(null);
   }
 
   async function handleThumbnailFileChange(
@@ -181,91 +84,46 @@ export default function HomeVideoForm({
   ) {
     const input = e.target;
     const file = input.files?.[0];
-    if (!file) {
-      setThumbUpload(IDLE_UPLOAD);
-      return;
-    }
+    if (!file) return setClientThumbError(null);
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setThumbUpload({
-        ...IDLE_UPLOAD,
-        status: "error",
-        error: "Only JPEG, PNG, or WEBP images are allowed.",
-      });
+      setClientThumbError("Only JPEG, PNG, or WEBP images are allowed.");
       input.value = "";
       return;
     }
+    setClientThumbError(null);
     if (removeThumbnail) setRemoveThumbnail(false);
 
-    // Compression (Prompt 82) still happens first, same as before -- this
-    // just changes what happens to the compressed RESULT (uploaded
-    // directly to Blob here, instead of attached to the Server Action's
-    // own FormData).
-    setThumbUpload({ status: "uploading", progress: 0, url: null, error: null, fileName: file.name });
-    let effectiveFile: File = file;
+    // Thumbnail compression (Prompt 82) -- the VIDEO input above is
+    // deliberately untouched: video compression is a materially
+    // different problem (re-encoding, not resize+re-encode-as-image) and
+    // was explicitly out of scope for this task. Same best-effort/
+    // DataTransfer-swap technique as the other two upload forms; no
+    // fileInputRef needed here since the change event's own `input`
+    // (captured above, before any `await`) is the element to swap
+    // `.files` on. The size check below runs AFTER compression, against
+    // its result -- a backstop, not a pre-compression gate.
+    setIsCompressingThumb(true);
+    let effectiveFile = file;
     try {
       effectiveFile = await compressImage(file);
-    } catch {
-      // best-effort, same as the original -- fall through with the
-      // uncompressed file rather than blocking the upload on it.
+    } finally {
+      setIsCompressingThumb(false);
     }
 
     if (effectiveFile.size > MAX_THUMBNAIL_SIZE_BYTES) {
-      setThumbUpload({
-        status: "error",
-        progress: 0,
-        url: null,
-        error: `"${file.name}" is still ${(effectiveFile.size / (1024 * 1024)).toFixed(1)}MB after compression -- the limit is 5MB.`,
-        fileName: file.name,
-      });
+      setClientThumbError(
+        `"${file.name}" is still ${(effectiveFile.size / (1024 * 1024)).toFixed(1)}MB after compression -- the limit is 5MB.`
+      );
       input.value = "";
       return;
     }
 
-    const extension = IMAGE_EXTENSION_BY_MIME_TYPE[effectiveFile.type] ?? "jpg";
-    const pathname = `home-videos/thumbnails/${crypto.randomUUID()}.${extension}`;
-
-    try {
-      const result = await upload(pathname, effectiveFile, {
-        access: "public",
-        handleUploadUrl: "/admin/api/blob-upload",
-        contentType: effectiveFile.type,
-        onUploadProgress: ({ percentage }) => {
-          setThumbUpload((prev) => ({ ...prev, progress: percentage }));
-        },
-      });
-      setThumbUpload({
-        status: "done",
-        progress: 100,
-        url: result.url,
-        error: null,
-        fileName: file.name,
-      });
-    } catch (error) {
-      setThumbUpload({
-        status: "error",
-        progress: 0,
-        url: null,
-        error:
-          error instanceof Error
-            ? `Upload failed: ${error.message}`
-            : "Upload failed. Please try again.",
-        fileName: file.name,
-      });
-      if (thumbInputRef.current) thumbInputRef.current.value = "";
+    if (effectiveFile !== file) {
+      const dt = new DataTransfer();
+      dt.items.add(effectiveFile);
+      input.files = dt.files;
     }
   }
-
-  const videoStillUploading = sourceType === "upload" && videoUpload.status === "uploading";
-  const thumbStillUploading = thumbUpload.status === "uploading";
-  // A NEW video is required on create; on edit it's only required if this
-  // row has no existing uploaded file to fall back on (matches
-  // updateHomeVideo's own `required: !existing.storage_path`).
-  const videoRequiredButMissing =
-    sourceType === "upload" &&
-    videoUpload.status !== "done" &&
-    (mode === "create" || !video?.storage_path);
-  const submitDisabled =
-    isPending || videoStillUploading || thumbStillUploading || videoRequiredButMissing;
 
   return (
     <form action={formAction} className="max-w-2xl space-y-8">
@@ -311,45 +169,22 @@ export default function HomeVideoForm({
               Video file
             </label>
             <input
-              ref={videoInputRef}
               id="file"
+              name="file"
               type="file"
-              accept="video/mp4,video/webm,video/quicktime"
+              accept="video/mp4,video/webm"
               onChange={handleVideoFileChange}
-              disabled={videoUpload.status === "uploading"}
-              aria-invalid={Boolean(videoUpload.error || fieldErrors?.file)}
-              className="block w-full text-sm text-brand-black file:me-3 file:rounded-btn file:border file:border-brand-border file:bg-brand-white file:px-3 file:py-1.5 file:text-sm file:text-brand-black hover:file:border-brand-black disabled:cursor-not-allowed disabled:opacity-60"
+              aria-invalid={Boolean(clientVideoError || fieldErrors?.file)}
+              className="block w-full text-sm text-brand-black file:me-3 file:rounded-btn file:border file:border-brand-border file:bg-brand-white file:px-3 file:py-1.5 file:text-sm file:text-brand-black hover:file:border-brand-black"
             />
-            {/* Carries the already-uploaded Blob URL, not the file itself
-                -- see this component's own top comment. */}
-            <input type="hidden" name="file_url" value={videoUpload.url ?? ""} />
             <p className="mt-1 text-xs text-brand-gray">
               {mode === "edit" && video?.storage_path
-                ? "Leave empty to keep the current video. MP4, WEBM, or MOV, up to 12MB -- short clips (a few seconds) work best."
-                : "MP4, WEBM, or MOV, up to 12MB -- short clips (a few seconds) work best."}
+                ? "Leave empty to keep the current video. MP4 or WEBM, up to 20MB."
+                : "MP4 or WEBM, up to 20MB."}
             </p>
-
-            {videoUpload.status === "uploading" ? (
-              <div className="mt-2">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-border">
-                  <div
-                    className="h-full rounded-full bg-brand-black transition-all"
-                    style={{ width: `${videoUpload.progress}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-brand-gray">
-                  Uploading {videoUpload.fileName}… {Math.round(videoUpload.progress)}%
-                </p>
-              </div>
-            ) : null}
-            {videoUpload.status === "done" ? (
-              <p className="mt-1 text-xs text-green-700">
-                ✓ {videoUpload.fileName} uploaded.
-              </p>
-            ) : null}
-            {videoUpload.error || fieldErrors?.file ? (
-              <p role="alert" className="mt-1 text-xs text-red-600">
-                {videoUpload.error ?? fieldErrors?.file}
+            {clientVideoError || fieldErrors?.file ? (
+              <p className="mt-1 text-xs text-red-600">
+                {clientVideoError ?? fieldErrors?.file}
               </p>
             ) : null}
           </div>
@@ -417,38 +252,22 @@ export default function HomeVideoForm({
         ) : null}
 
         <input
-          ref={thumbInputRef}
           id="thumbnail"
+          name="thumbnail"
           type="file"
           accept="image/jpeg,image/png,image/webp"
           onChange={handleThumbnailFileChange}
-          disabled={thumbUpload.status === "uploading"}
-          aria-invalid={Boolean(thumbUpload.error || fieldErrors?.thumbnail)}
-          className="block w-full text-sm text-brand-black file:me-3 file:rounded-btn file:border file:border-brand-border file:bg-brand-white file:px-3 file:py-1.5 file:text-sm file:text-brand-black hover:file:border-brand-black disabled:cursor-not-allowed disabled:opacity-60"
+          aria-invalid={Boolean(clientThumbError || fieldErrors?.thumbnail)}
+          className="block w-full text-sm text-brand-black file:me-3 file:rounded-btn file:border file:border-brand-border file:bg-brand-white file:px-3 file:py-1.5 file:text-sm file:text-brand-black hover:file:border-brand-black"
         />
-        <input type="hidden" name="thumbnail_url" value={thumbUpload.url ?? ""} />
         <p className="text-xs text-brand-gray">JPEG, PNG, or WEBP, up to 5MB.</p>
-
-        {thumbUpload.status === "uploading" ? (
-          <div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-border">
-              <div
-                className="h-full rounded-full bg-brand-black transition-all"
-                style={{ width: `${thumbUpload.progress}%` }}
-              />
-            </div>
-            <p className="mt-1 text-xs text-brand-gray">
-              Uploading… {Math.round(thumbUpload.progress)}%
-            </p>
-          </div>
-        ) : null}
-        {thumbUpload.status === "done" ? (
-          <p className="text-xs text-green-700">✓ {thumbUpload.fileName} uploaded.</p>
-        ) : null}
-        {thumbUpload.error || fieldErrors?.thumbnail ? (
-          <p role="alert" className="text-xs text-red-600">
-            {thumbUpload.error ?? fieldErrors?.thumbnail}
+        {clientThumbError || fieldErrors?.thumbnail ? (
+          <p className="text-xs text-red-600">
+            {clientThumbError ?? fieldErrors?.thumbnail}
           </p>
+        ) : null}
+        {isCompressingThumb ? (
+          <p className="text-xs text-brand-gray">Compressing thumbnail…</p>
         ) : null}
         {removeThumbnail ? (
           <input type="hidden" name="remove_thumbnail" value="on" />
@@ -508,13 +327,13 @@ export default function HomeVideoForm({
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={submitDisabled}
+          disabled={isPending || isCompressingThumb}
           className="rounded-btn border border-brand-black bg-brand-black px-6 py-2.5 text-sm font-medium text-brand-white transition-colors hover:bg-brand-white hover:text-brand-black disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending
             ? "Saving…"
-            : videoStillUploading || thumbStillUploading
-              ? "Uploading…"
+            : isCompressingThumb
+              ? "Processing…"
               : mode === "create"
                 ? "Create Video"
                 : "Save Changes"}

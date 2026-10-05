@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trimmedOrNull } from "@/lib/form-utils";
-import { removeStorageValues } from "@/lib/blob";
+import { uploadToBlob, removeStorageValues } from "@/lib/blob";
 import type {
   AdminHomeVideoRow,
   HomeVideoActionState,
@@ -18,28 +18,26 @@ import type {
 // own backstop for "at least one," but this form drives the admin toward
 // picking exactly one clearly, via a source_type radio the validation
 // logic below branches on.
-//
-// Direct-to-Blob client uploads (fix for the ~4.5MB Vercel serverless
-// request body limit, diagnosed in a prior prompt): the video and
-// thumbnail FILES no longer pass through this Server Action's body at
-// all. HomeVideoForm.tsx uploads them straight to Vercel Blob itself via
-// `upload()` from "@vercel/blob/client", authorized by
-// app/admin/api/blob-upload/route.ts's token endpoint (which also
-// enforces the real size/content-type limits -- 12MB video, 5MB
-// thumbnail -- server-side, before Blob accepts a single byte). This
-// Server Action now only ever receives the resulting Blob URL (a short
-// string) in `file_url` / `thumbnail_url` fields, which is validated
-// below to actually be one of OUR Blob URLs under the expected pathname
-// prefix -- a client could otherwise submit an arbitrary string here
-// directly, bypassing the token route's own checks entirely, since this
-// Server Action has no way to know whether a given URL string really came
-// from a successful handleUpload() call.
+
 const BUCKET = "home-videos";
 
-const BLOB_VIDEO_URL_PATTERN =
-  /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/home-videos\/videos\/[^/]+$/;
-const BLOB_THUMBNAIL_URL_PATTERN =
-  /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/home-videos\/thumbnails\/[^/]+$/;
+// Must match the bucket's real config (0013 + 0021 migrations):
+// file_size_limit = 20MB applies to everything in this bucket (video AND
+// thumbnail alike -- no separate per-mime-type limit exists at the
+// Storage layer), allowed_mime_types after 0021 = the two video types
+// below PLUS the three image types for thumbnails.
+const MAX_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
+const VIDEO_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+};
+
+const MAX_THUMBNAIL_SIZE_BYTES = 5 * 1024 * 1024;
+const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 type HomeVideoTextInput = {
   caption_en: string | null;
@@ -79,39 +77,58 @@ function validateText(formData: FormData): {
   };
 }
 
-// The FILE itself was already uploaded client-side straight to Blob
-// (HomeVideoForm.tsx, via app/admin/api/blob-upload/route.ts's token) --
-// this Server Action only ever sees the resulting URL string. Re-validate
-// it's actually one of OUR Blob URLs under the expected pathname prefix
-// (not just "looks like a URL") -- the real size/content-type
-// enforcement already happened at token-issue time, this is specifically
-// guarding against a client submitting an arbitrary string directly to
-// this action, bypassing the upload step entirely.
-function validateVideoUrl(
+function validateVideoFile(
   entry: FormDataEntryValue | null,
   { required }: { required: boolean }
-): { error: string | null; url: string | null } {
-  const url = typeof entry === "string" ? entry.trim() : "";
-  if (!url) {
+): { error: string | null; file: File | null } {
+  const provided = entry instanceof File && entry.size > 0;
+  if (!provided) {
     return required
-      ? { error: "Choose a video file.", url: null }
-      : { error: null, url: null };
+      ? { error: "Choose a video file.", file: null }
+      : { error: null, file: null };
   }
-  if (!BLOB_VIDEO_URL_PATTERN.test(url)) {
-    return { error: "Invalid video upload -- please try again.", url: null };
+  const file = entry as File;
+  const extension = VIDEO_EXTENSION_BY_MIME_TYPE[file.type];
+  if (!extension) {
+    return { error: "Only MP4 or WEBM videos are allowed.", file: null };
   }
-  return { error: null, url };
+  if (file.size > MAX_VIDEO_SIZE_BYTES) {
+    return { error: "Must be 20MB or smaller.", file: null };
+  }
+  return { error: null, file };
 }
 
-function validateThumbnailUrl(
+function validateThumbnailFile(
   entry: FormDataEntryValue | null
-): { error: string | null; url: string | null } {
-  const url = typeof entry === "string" ? entry.trim() : "";
-  if (!url) return { error: null, url: null };
-  if (!BLOB_THUMBNAIL_URL_PATTERN.test(url)) {
-    return { error: "Invalid thumbnail upload -- please try again.", url: null };
+): { error: string | null; file: File | null } {
+  const provided = entry instanceof File && entry.size > 0;
+  if (!provided) return { error: null, file: null };
+  const file = entry as File;
+  const extension = IMAGE_EXTENSION_BY_MIME_TYPE[file.type];
+  if (!extension) {
+    return {
+      error: "Only JPEG, PNG, or WEBP images are allowed.",
+      file: null,
+    };
   }
-  return { error: null, url };
+  if (file.size > MAX_THUMBNAIL_SIZE_BYTES) {
+    return { error: "Must be 5MB or smaller.", file: null };
+  }
+  return { error: null, file };
+}
+
+// Prompt 192 -- throws on failure rather than returning {path, error}:
+// every caller immediately does `if (error) return {status: "error", ...}`
+// right after, so a thrown error (caught at each call site below) reads
+// the same way without a nullable `path` TypeScript can't narrow.
+async function uploadVideo(file: File): Promise<string> {
+  const path = `${BUCKET}/videos/${crypto.randomUUID()}.${VIDEO_EXTENSION_BY_MIME_TYPE[file.type]}`;
+  return uploadToBlob(path, file, file.type);
+}
+
+async function uploadThumbnail(file: File): Promise<string> {
+  const path = `${BUCKET}/thumbnails/${crypto.randomUUID()}.${IMAGE_EXTENSION_BY_MIME_TYPE[file.type]}`;
+  return uploadToBlob(path, file, file.type);
 }
 
 async function removeObjects(supabase: SupabaseClient, paths: string[]) {
@@ -150,23 +167,24 @@ export async function createHomeVideo(
 
   let storage_path: string | null = null;
   let external_url: string | null = null;
-  // Both files (if present) are ALREADY uploaded to Blob by the time this
-  // action runs -- HomeVideoForm.tsx does the direct-to-Blob upload
-  // client-side before submitting, see this file's own top comment. This
-  // list is only for cleanup if something ELSE about the submission is
-  // invalid, so a rejected submission doesn't leave an orphaned Blob
-  // object behind.
   const uploadedPaths: string[] = [];
 
   if (sourceType === "upload") {
-    const { error: urlError, url } = validateVideoUrl(formData.get("file_url"), {
+    const { error: fileError, file } = validateVideoFile(formData.get("file"), {
       required: true,
     });
-    if (urlError) {
-      fieldErrors.file = urlError;
-    } else if (url) {
-      storage_path = url;
-      uploadedPaths.push(url);
+    if (fileError) {
+      fieldErrors.file = fileError;
+    } else if (file) {
+      try {
+        storage_path = await uploadVideo(file);
+        uploadedPaths.push(storage_path);
+      } catch {
+        return {
+          status: "error",
+          message: "Something went wrong uploading the video. Please try again.",
+        };
+      }
     }
   } else if (sourceType === "external") {
     const url = trimmedOrNull(formData.get("external_url"));
@@ -179,13 +197,24 @@ export async function createHomeVideo(
     fieldErrors.file = "Choose a video source.";
   }
 
-  const { error: thumbError, url: thumbnailUrl } = validateThumbnailUrl(
-    formData.get("thumbnail_url")
+  const { error: thumbError, file: thumbFile } = validateThumbnailFile(
+    formData.get("thumbnail")
   );
   if (thumbError) fieldErrors.thumbnail = thumbError;
 
-  const thumbnail_storage_path = thumbnailUrl;
-  if (thumbnailUrl) uploadedPaths.push(thumbnailUrl);
+  let thumbnail_storage_path: string | null = null;
+  if (!thumbError && thumbFile) {
+    try {
+      thumbnail_storage_path = await uploadThumbnail(thumbFile);
+      uploadedPaths.push(thumbnail_storage_path);
+    } catch {
+      await removeObjects(supabase, uploadedPaths);
+      return {
+        status: "error",
+        message: "Something went wrong uploading the thumbnail. Please try again.",
+      };
+    }
+  }
 
   if (!values || Object.keys(fieldErrors).length > 0) {
     await removeObjects(supabase, uploadedPaths);
@@ -257,17 +286,21 @@ export async function updateHomeVideo(
   if (sourceType === "upload") {
     // Required only if there's no existing uploaded file to fall back on
     // -- i.e. this row is switching FROM external (or is somehow sourceless).
-    // The file (if any) is already uploaded to Blob client-side by this
-    // point -- see this file's own top comment -- so this is just
-    // re-validating the resulting URL's shape.
-    const { error: urlError, url } = validateVideoUrl(formData.get("file_url"), {
+    const { error: fileError, file } = validateVideoFile(formData.get("file"), {
       required: !existing.storage_path,
     });
-    if (urlError) {
-      fieldErrors.file = urlError;
-    } else if (url) {
-      finalStoragePath = url;
-      newlyUploadedPaths.push(url);
+    if (fileError) {
+      fieldErrors.file = fileError;
+    } else if (file) {
+      try {
+        finalStoragePath = await uploadVideo(file);
+        newlyUploadedPaths.push(finalStoragePath);
+      } catch {
+        return {
+          status: "error",
+          message: "Something went wrong uploading the video. Please try again.",
+        };
+      }
     }
     // else: staying on upload, no new file -- finalStoragePath stays
     // existing.storage_path (already assigned above).
@@ -284,15 +317,23 @@ export async function updateHomeVideo(
     fieldErrors.file = "Choose a video source.";
   }
 
-  const { error: thumbError, url: thumbnailUrl } = validateThumbnailUrl(
-    formData.get("thumbnail_url")
+  const { error: thumbError, file: thumbFile } = validateThumbnailFile(
+    formData.get("thumbnail")
   );
   if (thumbError) fieldErrors.thumbnail = thumbError;
 
   let finalThumbnailPath: string | null = existing.thumbnail_storage_path;
-  if (!thumbError && thumbnailUrl) {
-    finalThumbnailPath = thumbnailUrl;
-    newlyUploadedPaths.push(thumbnailUrl);
+  if (!thumbError && thumbFile) {
+    try {
+      finalThumbnailPath = await uploadThumbnail(thumbFile);
+      newlyUploadedPaths.push(finalThumbnailPath);
+    } catch {
+      await removeObjects(supabase, newlyUploadedPaths);
+      return {
+        status: "error",
+        message: "Something went wrong uploading the thumbnail. Please try again.",
+      };
+    }
   } else if (!thumbError && removeThumbnail) {
     finalThumbnailPath = null;
   }

@@ -114,17 +114,7 @@ function securityHeaders(): Record<string, string> {
     // resolves to a same-origin object this browser tab itself created,
     // never an external endpoint, so this doesn't open any new
     // cross-origin surface.
-    // https://vercel.com added for the admin Home Videos direct-to-Blob
-    // client upload (fix for the ~4.5MB Vercel serverless request-body
-    // limit): `upload()` from "@vercel/blob/client" PUTs the actual file
-    // bytes to https://vercel.com/api/blob (confirmed by reading
-    // @vercel/blob's own compiled client code -- getApiUrl()'s default,
-    // not the *.public.blob.vercel-storage.com read/download hostname
-    // already allowed above, which is a DIFFERENT host for a DIFFERENT
-    // purpose). Scoped to the bare vercel.com origin, not wildcarded --
-    // this is the one fixed host the SDK itself calls, not a per-store
-    // subdomain.
-    `connect-src 'self' blob: https://${supabaseHostname} https://www.facebook.com https://vercel.com`,
+    `connect-src 'self' blob: https://${supabaseHostname} https://www.facebook.com`,
     "font-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
