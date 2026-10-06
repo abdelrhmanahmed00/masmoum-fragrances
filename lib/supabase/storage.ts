@@ -16,7 +16,6 @@ const IMAGE_CDN_URL = process.env.NEXT_PUBLIC_IMAGE_CDN_URL;
 export type StorageBucket =
   | "hero-images"
   | "product-images"
-  | "home-videos"
   | "private-label-images"
   | "category-images"
   | "perfume-gender-images"
