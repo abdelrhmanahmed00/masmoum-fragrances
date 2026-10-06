@@ -85,19 +85,17 @@ function securityHeaders(): Record<string, string> {
     scriptSrc + " https://connect.facebook.net",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https://${supabaseHostname} ${BLOB_HOSTNAME_PATTERN} https://www.facebook.com`,
-    // Prompt 40 bug fix: media-src governs <video>/<audio> `src` loading
-    // and was missing entirely -- per the CSP spec it falls back to
-    // default-src ('self' only) when absent, which silently blocks any
-    // <video src="https://<supabase-host>/..."> load in every real
-    // browser (confirmed root cause of the "empty outline, no content"
-    // report -- curl/fetch aren't CSP-governed, so the URL, file, and
-    // markup all checked out fine while a real browser still blocked it).
-    // img-src/connect-src were already scoped to the Supabase hostname
-    // for the same reason (images, Supabase JS client fetches) -- this
-    // was a real gap, not a deliberate omission: no video content existed
-    // at all until Prompt 37, which added real <video> playback but never
-    // revisited this CSP (set up earlier, before videos were a concern).
-    `media-src 'self' https://${supabaseHostname} ${BLOB_HOSTNAME_PATTERN}`,
+    // media-src (added Prompt 40 for <video>/<audio> src loading, since
+    // the home-videos feature was the only thing in the app that ever
+    // rendered a <video> element) was removed when that feature was
+    // deleted -- nothing in the app renders <video>/<audio> anymore
+    // (confirmed by grep before removing this line). Per the CSP spec,
+    // an absent media-src directive falls back to default-src ('self'
+    // only, the first directive above), which is the correct, safe
+    // default for a site with no media elements -- if a future feature
+    // ever needs <video>/<audio> again, re-add this directive scoped to
+    // whatever host that feature's media actually lives on, the same way
+    // Prompt 40 originally did.
     // Prompt 136: `blob:` added for the Custom Bottle Designer's
     // submission flow (lib/design-requests.ts) -- it calls
     // `fetch(activeLogoUrl)` on the customer's own local blob: object URL
