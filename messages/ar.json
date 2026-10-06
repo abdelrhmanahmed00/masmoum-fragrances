@@ -70,13 +70,6 @@
     "nextPage": "التالي",
     "pageLabel": "صفحة {number}"
   },
-  "Videos": {
-    "heading": "شاهدها عن قرب",
-    "emptyState": "الفيديوهات قريبًا — تابعونا.",
-    "mute": "كتم الصوت",
-    "unmute": "تشغيل الصوت",
-    "slideLabel": "فيديو {number}"
-  },
   "Stats": {
     "heading": "بالأرقام",
     "subheading": "لمحة عن الحرفية والانتشار وراء كل شحنة من مسموم للعطور.",

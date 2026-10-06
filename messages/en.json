@@ -70,13 +70,6 @@
     "nextPage": "Next",
     "pageLabel": "Page {number}"
   },
-  "Videos": {
-    "heading": "See It In Action",
-    "emptyState": "Videos coming soon — check back shortly.",
-    "mute": "Mute video",
-    "unmute": "Unmute video",
-    "slideLabel": "Video {number}"
-  },
   "Stats": {
     "heading": "By The Numbers",
     "subheading": "A snapshot of the craftsmanship and reach behind every Masmoum Fragrances shipment.",
