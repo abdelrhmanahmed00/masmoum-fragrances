@@ -43,11 +43,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     description: "The homepage's rotating banner images.",
   },
   {
-    href: "/admin/home-videos",
-    label: "Home Videos",
-    description: "The homepage's circular/pill video row.",
-  },
-  {
     href: "/admin/settings",
     label: "Site Settings",
     description: "Contact email, phone, and WhatsApp shown in the Footer.",
