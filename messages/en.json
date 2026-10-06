@@ -244,5 +244,17 @@
     "heading": "Thank You!",
     "message": "Your quote request has been received. Our team will get back to you shortly.",
     "continueShopping": "Continue Shopping"
+  },
+  "HowItWorks": {
+    "heading": "How It Works",
+    "subheading": "From inquiry to delivery, in four straightforward steps.",
+    "step1Title": "Request a Quote",
+    "step1Description": "Tell us what you need and get wholesale pricing.",
+    "step2Title": "Choose Your Fragrances",
+    "step2Description": "Browse the full catalog and select your products.",
+    "step3Title": "Design Your Bottle",
+    "step3Description": "Customize packaging or go private label.",
+    "step4Title": "We Produce & Ship",
+    "step4Description": "Your order is manufactured and shipped worldwide."
   }
 }

@@ -2,6 +2,7 @@ import { setRequestLocale } from "next-intl/server";
 import Hero from "@/components/home/Hero";
 import CategoryTemplatesStrip from "@/components/home/CategoryTemplatesStrip";
 import ProductsSection from "@/components/home/ProductsSection";
+import HowItWorksSection from "@/components/home/HowItWorksSection";
 import StatsSection from "@/components/home/StatsSection";
 
 // setRequestLocale is required here (not just in the root layout) because
@@ -24,7 +25,11 @@ import StatsSection from "@/components/home/StatsSection";
 // ProductsSection does. The video row itself (VideosSection/
 // VideosCarousel) was removed entirely in a later prompt -- it consumed
 // the free Vercel Blob quota and its own direct-upload fix was
-// abandoned; StatsSection now follows ProductsSection directly.
+// abandoned. Prompt 197 Phase 3 fills that same slot with
+// HowItWorksSection, a static text/icon-only 4-step strip (no
+// images/video, so no Blob usage at all) -- kept as its own separate,
+// optional commit, so reverting to the no-replacement layout is a single
+// one-line removal if the client prefers that instead.
 export default async function HomePage({
   params,
 }: PageProps<"/[locale]">) {
@@ -39,6 +44,7 @@ export default async function HomePage({
           Products") -- both sections coexist. */}
       <CategoryTemplatesStrip />
       <ProductsSection />
+      <HowItWorksSection />
       <StatsSection />
     </>
   );
